@@ -4,7 +4,7 @@ const authController = require('../controllers/auth.controller');
 
 /**
  * @swagger
- * /api/auth/register:
+ * /api/v1/auth/register:
  *   post:
  *     tags: [Authentication]
  *     summary: Inscription d'un nouvel utilisateur
@@ -57,11 +57,11 @@ router.post('/register', authController.register);
 
 /**
  * @swagger
- * /api/auth/login:
+ * /api/v1/auth/login:
  *   post:
  *     tags: [Authentication]
  *     summary: Connexion utilisateur
- *     description: Authentifie un utilisateur et renvoie un token JWT
+ *     description: Authentifie un utilisateur avec son email/téléphone et son mot de passe
  *     requestBody:
  *       required: true
  *       content:
@@ -69,15 +69,29 @@ router.post('/register', authController.register);
  *           schema:
  *             type: object
  *             required:
- *               - email
+ *               - identifier
  *               - password
  *             properties:
- *               email:
+ *               identifier:
  *                 type: string
- *                 format: email
+ *                 description: Email ou numéro de téléphone de l'utilisateur
+ *                 examples:
+ *                   - "user@example.com"
+ *                   - "+243826016607"
  *               password:
  *                 type: string
  *                 format: password
+ *           examples:
+ *             phone:
+ *               value:
+ *                 identifier: "+243826016607"
+ *                 password: "1234"
+ *               summary: Connexion avec téléphone
+ *             email:
+ *               value:
+ *                 identifier: "user@example.com"
+ *                 password: "motdepasse123"
+ *               summary: Connexion avec email
  *     responses:
  *       200:
  *         description: Connexion réussie
@@ -88,18 +102,50 @@ router.post('/register', authController.register);
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 token:
  *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 user:
- *                   $ref: '#/components/schemas/User'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "5f7d3c4b9d3e2a1b3c4d5e6f"
+ *                     email:
+ *                       type: string
+ *                       example: "user@example.com"
+ *                     phone:
+ *                       type: string
+ *                       example: "+243826016607"
+ *                     firstName:
+ *                       type: string
+ *                       example: "John"
+ *                     lastName:
+ *                       type: string
+ *                       example: "Doe"
+ *                     role:
+ *                       type: string
+ *                       example: "locataire"
  *       401:
- *         description: Email ou mot de passe incorrect
+ *         description: Identifiant ou mot de passe incorrect
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Identifiant ou mot de passe incorrect"
  */
 router.post('/login', authController.login);
 
 /**
  * @swagger
- * /api/auth/verify-email/{token}:
+ * /api/v1/auth/verify-email/{token}:
  *   get:
  *     tags: [Authentication]
  *     summary: Vérification de l'email
@@ -120,7 +166,7 @@ router.get('/verify-email/:token', authController.verifyEmail);
 
 /**
  * @swagger
- * /api/auth/forgot-password:
+ * /api/v1/auth/forgot-password:
  *   post:
  *     tags: [Authentication]
  *     summary: Demande de réinitialisation de mot de passe
@@ -147,7 +193,7 @@ router.post('/forgot-password', authController.forgotPassword);
 
 /**
  * @swagger
- * /api/auth/reset-password/{token}:
+ * /api/v1/auth/reset-password/{token}:
  *   post:
  *     tags: [Authentication]
  *     summary: Réinitialisation du mot de passe

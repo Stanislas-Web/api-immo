@@ -9,10 +9,60 @@ const JWT_EXPIRES_IN = '24h';
 
 /**
  * @swagger
+ * tags:
+ *   name: Authentication
+ *   description: API d'authentification
+ */
+
+/**
+ * @swagger
  * /api/v1/auth/register:
  *   post:
  *     tags: [Authentication]
  *     summary: Inscription d'un nouvel utilisateur
+ *     description: Permet à un nouvel utilisateur de s'inscrire
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - phone
+ *               - password
+ *               - firstName
+ *               - lastName
+ *               - role
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email de l'utilisateur
+ *               phone:
+ *                 type: string
+ *                 description: Numéro de téléphone
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mot de passe
+ *               firstName:
+ *                 type: string
+ *                 description: Prénom
+ *               lastName:
+ *                 type: string
+ *                 description: Nom
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *                 description: Rôle de l'utilisateur
+ *     responses:
+ *       201:
+ *         description: Inscription réussie
+ *       400:
+ *         description: Données invalides ou utilisateur existant
+ *       500:
+ *         description: Erreur serveur
  */
 exports.register = async (req, res) => {
     try {
@@ -67,6 +117,33 @@ exports.register = async (req, res) => {
  *   post:
  *     tags: [Authentication]
  *     summary: Connexion d'un utilisateur
+ *     description: Permet à un utilisateur de se connecter
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - identifier
+ *               - password
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 description: Email ou numéro de téléphone
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mot de passe
+ *     responses:
+ *       200:
+ *         description: Connexion réussie
+ *       400:
+ *         description: Données invalides
+ *       401:
+ *         description: Identifiant ou mot de passe incorrect
+ *       500:
+ *         description: Erreur serveur
  */
 exports.login = async (req, res) => {
     try {
@@ -79,7 +156,7 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Trouver l'utilisateur par email ou téléphone
+        // Rechercher l'utilisateur par email ou téléphone
         const user = await User.findOne({
             $or: [
                 { email: identifier },
@@ -103,27 +180,15 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Vérifier si l'utilisateur est vérifié
-        if (!user.isVerified) {
-            return res.status(401).json({
-                success: false,
-                message: 'Veuillez vérifier votre compte'
-            });
-        }
-
-        // Créer le token JWT
+        // Générer le token JWT
         const token = jwt.sign(
             { 
-                userId: user._id, 
-                role: user.role 
+                userId: user._id,
+                role: user.role
             },
-            JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN }
+            process.env.JWT_SECRET || 'your-secret-key',
+            { expiresIn: '24h' }
         );
-
-        // Mettre à jour la dernière connexion
-        user.lastLogin = new Date();
-        await user.save();
 
         res.status(200).json({
             success: true,
@@ -134,7 +199,8 @@ exports.login = async (req, res) => {
                 phone: user.phone,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                role: user.role
+                role: user.role,
+                isVerified: user.isVerified
             }
         });
     } catch (error) {
@@ -152,6 +218,19 @@ exports.login = async (req, res) => {
  *   get:
  *     tags: [Authentication]
  *     summary: Vérification de l'email
+ *     description: Permet de vérifier l'email d'un utilisateur
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         description: Token de vérification
+ *     responses:
+ *       200:
+ *         description: Email vérifié
+ *       400:
+ *         description: Token invalide
+ *       500:
+ *         description: Erreur serveur
  */
 exports.verifyEmail = async (req, res) => {
     try {
@@ -188,6 +267,27 @@ exports.verifyEmail = async (req, res) => {
  *   post:
  *     tags: [Authentication]
  *     summary: Demande de réinitialisation du mot de passe
+ *     description: Permet de demander la réinitialisation du mot de passe
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email de l'utilisateur
+ *     responses:
+ *       200:
+ *         description: Instructions de réinitialisation envoyées
+ *       404:
+ *         description: Aucun compte associé à cet email
+ *       500:
+ *         description: Erreur serveur
  */
 exports.forgotPassword = async (req, res) => {
     try {
@@ -228,6 +328,32 @@ exports.forgotPassword = async (req, res) => {
  *   patch:
  *     tags: [Authentication]
  *     summary: Réinitialisation du mot de passe
+ *     description: Permet de réinitialiser le mot de passe
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         description: Token de réinitialisation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Nouveau mot de passe
+ *     responses:
+ *       200:
+ *         description: Mot de passe réinitialisé
+ *       400:
+ *         description: Token invalide ou expiré
+ *       500:
+ *         description: Erreur serveur
  */
 exports.resetPassword = async (req, res) => {
     try {

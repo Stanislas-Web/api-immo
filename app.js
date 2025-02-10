@@ -32,8 +32,8 @@ const swaggerOptions = {
     servers: [
       {
         url: process.env.NODE_ENV === 'production' 
-          ? 'https://api-immo.com/api/v1' 
-          : 'http://localhost:3000/api/v1',
+          ? 'https://api-immo.com' 
+          : 'http://localhost:3000',
         description: process.env.NODE_ENV === 'production' ? 'Serveur de production' : 'Serveur de développement'
       }
     ],
@@ -82,7 +82,7 @@ app.use('/api/v1', limiter);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "API Immobilière - Documentation",
+  customSiteTitle: "API Immobilière - Documentation"
 }));
 
 // Routes
@@ -102,21 +102,22 @@ app.get('/', (req, res) => {
     });
 });
 
-// Gestion des erreurs 404
-app.use((req, res, next) => {
+// Gestion des routes non trouvées
+app.use((req, res) => {
     res.status(404).json({
         success: false,
-        message: 'Route non trouvée'
+        message: 'Route non trouvée',
+        path: req.path
     });
 });
 
-// Gestion globale des erreurs
+// Gestion des erreurs
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(err.status || 500).json({
+    res.status(500).json({
         success: false,
-        message: err.message || 'Erreur interne du serveur',
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+        message: 'Erreur interne du serveur',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
 });
 
@@ -140,12 +141,6 @@ process.on('SIGINT', async () => {
         console.error('Erreur lors de la fermeture de MongoDB:', err);
         process.exit(1);
     }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Serveur démarré sur le port ${PORT}`);
-    console.log(`Documentation disponible sur http://localhost:${PORT}/api-docs`);
 });
 
 module.exports = app;
