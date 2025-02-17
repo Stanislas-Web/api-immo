@@ -33,7 +33,7 @@ const swaggerOptions = {
       {
         url: process.env.NODE_ENV === 'production' 
           ? 'https://api-immo.com' 
-          : 'http://localhost:3000',
+          : 'http://localhost:8000',
         description: process.env.NODE_ENV === 'production' ? 'Serveur de production' : 'Serveur de développement'
       }
     ],
