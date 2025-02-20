@@ -3,7 +3,7 @@ const User = require('../models/user.model');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-const auth = (roles = []) => {
+const auth = (roles = [], options = { requireVerification: true }) => {
     return async (req, res, next) => {
         try {
             let token;
@@ -30,7 +30,8 @@ const auth = (roles = []) => {
                     });
                 }
 
-                if (!user.isVerified) {
+                // Vérification du compte seulement si requireVerification est true
+                if (options.requireVerification && !user.isVerified) {
                     return res.status(401).json({
                         success: false,
                         message: 'Compte non vérifié'

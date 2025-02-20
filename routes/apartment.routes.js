@@ -12,12 +12,45 @@ const upload = require('../middleware/upload');
  *     summary: Créer un nouvel appartement
  *     security:
  *       - bearerAuth: []
+ *     description: Permet à un propriétaire de créer un nouvel appartement dans un immeuble
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Apartment'
+ *             type: object
+ *             required:
+ *               - buildingId
+ *               - number
+ *               - type
+ *               - price
+ *             properties:
+ *               buildingId:
+ *                 type: string
+ *                 description: ID de l'immeuble
+ *               number:
+ *                 type: string
+ *                 description: Numéro de l'appartement
+ *               type:
+ *                 type: string
+ *                 enum: [studio, f1, f2, f3, f4, f5, duplex, penthouse]
+ *               price:
+ *                 type: number
+ *                 description: Prix mensuel de location
+ *               surface:
+ *                 type: number
+ *                 description: Surface en mètres carrés
+ *               description:
+ *                 type: string
+ *               features:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [meuble, climatisation, balcon, parking, internet]
+ *               status:
+ *                 type: string
+ *                 enum: [disponible, loue, maintenance]
+ *                 default: disponible
  *     responses:
  *       201:
  *         description: Appartement créé avec succès
@@ -25,8 +58,10 @@ const upload = require('../middleware/upload');
  *         description: Données invalides
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à créer un appartement dans cet immeuble
  */
-router.post('/', auth(['proprietaire', 'agent']), apartmentController.createApartment);
+router.post('/', auth(['proprietaire', 'admin']), apartmentController.createApartment);
 
 /**
  * @swagger
@@ -36,6 +71,7 @@ router.post('/', auth(['proprietaire', 'agent']), apartmentController.createApar
  *     summary: Liste tous les appartements
  *     security:
  *       - bearerAuth: []
+ *     description: Récupère la liste de tous les appartements avec pagination et filtres
  *     parameters:
  *       - in: query
  *         name: page
@@ -50,17 +86,22 @@ router.post('/', auth(['proprietaire', 'agent']), apartmentController.createApar
  *           default: 10
  *         description: Nombre d'éléments par page
  *       - in: query
+ *         name: buildingId
+ *         schema:
+ *           type: string
+ *         description: Filtrer par immeuble
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [studio, f1, f2, f3, f4, f5, duplex, penthouse]
+ *         description: Filtrer par type
+ *       - in: query
  *         name: status
  *         schema:
  *           type: string
  *           enum: [disponible, loue, maintenance]
  *         description: Filtrer par statut
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [studio, appartement, maison, villa]
- *         description: Filtrer par type
  *       - in: query
  *         name: minPrice
  *         schema:
@@ -74,23 +115,10 @@ router.post('/', auth(['proprietaire', 'agent']), apartmentController.createApar
  *     responses:
  *       200:
  *         description: Liste des appartements
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Apartment'
- *                 total:
- *                   type: integer
- *                 page:
- *                   type: integer
- *                 pages:
- *                   type: integer
+ *       401:
+ *         description: Non autorisé
  */
-router.get('/', auth(), apartmentController.getAllApartments);
+router.get('/', auth(['proprietaire', 'admin', 'locataire', 'agent']), apartmentController.getAllApartments);
 
 /**
  * @swagger
@@ -110,14 +138,12 @@ router.get('/', auth(), apartmentController.getAllApartments);
  *     responses:
  *       200:
  *         description: Détails de l'appartement
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Apartment'
  *       404:
  *         description: Appartement non trouvé
+ *       401:
+ *         description: Non autorisé
  */
-router.get('/:id', auth(), apartmentController.getApartmentById);
+router.get('/:id', auth(['proprietaire', 'admin', 'locataire', 'agent']), apartmentController.getApartmentById);
 
 /**
  * @swagger
@@ -139,7 +165,27 @@ router.get('/:id', auth(), apartmentController.getApartmentById);
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Apartment'
+ *             type: object
+ *             properties:
+ *               number:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [studio, f1, f2, f3, f4, f5, duplex, penthouse]
+ *               price:
+ *                 type: number
+ *               surface:
+ *                 type: number
+ *               description:
+ *                 type: string
+ *               features:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [meuble, climatisation, balcon, parking, internet]
+ *               status:
+ *                 type: string
+ *                 enum: [disponible, loue, maintenance]
  *     responses:
  *       200:
  *         description: Appartement mis à jour avec succès
@@ -147,8 +193,10 @@ router.get('/:id', auth(), apartmentController.getApartmentById);
  *         description: Appartement non trouvé
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à modifier cet appartement
  */
-router.put('/:id', auth(['proprietaire', 'agent']), apartmentController.updateApartment);
+router.put('/:id', auth(['proprietaire', 'admin']), apartmentController.updateApartment);
 
 /**
  * @swagger
@@ -172,8 +220,10 @@ router.put('/:id', auth(['proprietaire', 'agent']), apartmentController.updateAp
  *         description: Appartement non trouvé
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à supprimer cet appartement
  */
-router.delete('/:id', auth(['proprietaire', 'agent']), apartmentController.deleteApartment);
+router.delete('/:id', auth(['proprietaire', 'admin']), apartmentController.deleteApartment);
 
 /**
  * @swagger
@@ -210,7 +260,7 @@ router.delete('/:id', auth(['proprietaire', 'agent']), apartmentController.delet
  *       401:
  *         description: Non autorisé
  */
-router.post('/:id/images', auth(['proprietaire', 'agent']), upload.array('images', 10), apartmentController.addImages);
+router.post('/:id/images', auth(['proprietaire', 'admin']), upload.array('images', 10), apartmentController.addImages);
 
 /**
  * @swagger
@@ -241,6 +291,6 @@ router.post('/:id/images', auth(['proprietaire', 'agent']), upload.array('images
  *       401:
  *         description: Non autorisé
  */
-router.delete('/:id/images/:imageId', auth(['proprietaire', 'agent']), apartmentController.deleteImage);
+router.delete('/:id/images/:imageId', auth(['proprietaire', 'admin']), apartmentController.deleteImage);
 
 module.exports = router;

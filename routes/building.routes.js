@@ -5,7 +5,7 @@ const { auth } = require('../middleware/auth');
 
 /**
  * @swagger
- * /api/buildings:
+ * /api/v1/buildings:
  *   post:
  *     tags: [Buildings]
  *     summary: Créer un nouveau bâtiment
@@ -17,27 +17,59 @@ const { auth } = require('../middleware/auth');
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Building'
+ *             type: object
+ *             required:
+ *               - name
+ *               - address
+ *             properties:
+ *               name:
+ *                 type: string
+ *               address:
+ *                 type: object
+ *                 properties:
+ *                   street:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   postalCode:
+ *                     type: string
+ *                   country:
+ *                     type: string
+ *                     default: Congo
+ *               description:
+ *                 type: string
+ *               features:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [ascenseur, parking, gardien, piscine, gym, jardin]
+ *               totalApartments:
+ *                 type: number
+ *               availableApartments:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [en_construction, disponible, complet]
+ *               constructionYear:
+ *                 type: number
  *     responses:
  *       201:
  *         description: Bâtiment créé avec succès
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Building'
  *       400:
  *         description: Données invalides
  *       401:
  *         description: Non autorisé
  */
-router.post('/', auth(['proprietaire', 'admin']), buildingController.createBuilding);
+router.post('/', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.createBuilding);
 
 /**
  * @swagger
- * /api/buildings:
+ * /api/v1/buildings:
  *   get:
  *     tags: [Buildings]
  *     summary: Liste tous les bâtiments
+ *     security:
+ *       - bearerAuth: []
  *     description: Récupère la liste de tous les bâtiments avec pagination
  *     parameters:
  *       - in: query
@@ -61,30 +93,19 @@ router.post('/', auth(['proprietaire', 'admin']), buildingController.createBuild
  *     responses:
  *       200:
  *         description: Liste des bâtiments
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 buildings:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Building'
- *                 total:
- *                   type: integer
- *                 page:
- *                   type: integer
- *                 pages:
- *                   type: integer
+ *       401:
+ *         description: Non autorisé
  */
 router.get('/', auth(['proprietaire', 'admin']), buildingController.getAllBuildings);
 
 /**
  * @swagger
- * /api/buildings/{id}:
+ * /api/v1/buildings/{id}:
  *   get:
  *     tags: [Buildings]
  *     summary: Obtenir les détails d'un bâtiment
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -95,18 +116,16 @@ router.get('/', auth(['proprietaire', 'admin']), buildingController.getAllBuildi
  *     responses:
  *       200:
  *         description: Détails du bâtiment
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Building'
  *       404:
  *         description: Bâtiment non trouvé
+ *       401:
+ *         description: Non autorisé
  */
 router.get('/:id', auth(['proprietaire', 'admin']), buildingController.getBuildingById);
 
 /**
  * @swagger
- * /api/buildings/{id}:
+ * /api/v1/buildings/{id}:
  *   put:
  *     tags: [Buildings]
  *     summary: Mettre à jour un bâtiment
@@ -128,20 +147,18 @@ router.get('/:id', auth(['proprietaire', 'admin']), buildingController.getBuildi
  *     responses:
  *       200:
  *         description: Bâtiment mis à jour avec succès
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Building'
  *       404:
  *         description: Bâtiment non trouvé
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à modifier cet immeuble
  */
 router.put('/:id', auth(['proprietaire', 'admin']), buildingController.updateBuilding);
 
 /**
  * @swagger
- * /api/buildings/{id}:
+ * /api/v1/buildings/{id}:
  *   delete:
  *     tags: [Buildings]
  *     summary: Supprimer un bâtiment
@@ -161,12 +178,14 @@ router.put('/:id', auth(['proprietaire', 'admin']), buildingController.updateBui
  *         description: Bâtiment non trouvé
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à supprimer cet immeuble
  */
 router.delete('/:id', auth(['proprietaire', 'admin']), buildingController.deleteBuilding);
 
 /**
  * @swagger
- * /api/buildings/{id}/documents:
+ * /api/v1/buildings/{id}/documents:
  *   post:
  *     tags: [Buildings]
  *     summary: Ajouter un document à un bâtiment

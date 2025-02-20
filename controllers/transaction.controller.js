@@ -192,6 +192,49 @@ exports.getTransactionById = async (req, res) => {
     }
 };
 
+exports.updateTransaction = async (req, res) => {
+    try {
+        const transaction = await Transaction.findById(req.params.id);
+
+        if (!transaction) {
+            return res.status(404).json({
+                success: false,
+                message: 'Transaction non trouvée'
+            });
+        }
+
+        // Vérifier si l'utilisateur est autorisé à modifier la transaction
+        if (transaction.landlord.toString() !== req.user._id.toString() && 
+            req.user.role !== 'admin' && 
+            req.user.role !== 'agent') {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorisé à modifier cette transaction'
+            });
+        }
+
+        const updatedTransaction = await Transaction.findByIdAndUpdate(
+            req.params.id,
+            { ...req.body },
+            { new: true, runValidators: true }
+        )
+        .populate('tenant', 'firstName lastName email')
+        .populate('landlord', 'firstName lastName email')
+        .populate('apartmentId');
+
+        res.status(200).json({
+            success: true,
+            data: updatedTransaction
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la mise à jour de la transaction',
+            error: error.message
+        });
+    }
+};
+
 exports.updateTransactionStatus = async (req, res) => {
     try {
         const { status } = req.body;

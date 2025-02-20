@@ -241,3 +241,74 @@ exports.getMessages = async (req, res) => {
         });
     }
 };
+
+exports.getMessageById = async (req, res) => {
+    try {
+        const message = await Message.findById(req.params.id)
+            .populate('sender', 'firstName lastName email profilePicture')
+            .populate('receiver', 'firstName lastName email profilePicture');
+
+        if (!message) {
+            return res.status(404).json({
+                success: false,
+                message: 'Message non trouvé'
+            });
+        }
+
+        // Vérifier si l'utilisateur est autorisé à voir ce message
+        if (message.sender.toString() !== req.user._id.toString() && 
+            message.receiver.toString() !== req.user._id.toString() && 
+            req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorisé à voir ce message'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: message
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération du message',
+            error: error.message
+        });
+    }
+};
+
+exports.deleteMessage = async (req, res) => {
+    try {
+        const message = await Message.findById(req.params.id);
+
+        if (!message) {
+            return res.status(404).json({
+                success: false,
+                message: 'Message non trouvé'
+            });
+        }
+
+        // Vérifier si l'utilisateur est autorisé à supprimer ce message
+        if (message.sender.toString() !== req.user._id.toString() && 
+            req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorisé à supprimer ce message'
+            });
+        }
+
+        await message.remove();
+
+        res.status(200).json({
+            success: true,
+            message: 'Message supprimé avec succès'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la suppression du message',
+            error: error.message
+        });
+    }
+};

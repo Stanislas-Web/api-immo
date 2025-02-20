@@ -5,13 +5,13 @@ const { auth } = require('../middleware/auth');
 
 /**
  * @swagger
- * /api/listings:
+ * /api/v1/listings:
  *   post:
  *     tags: [Listings]
  *     summary: Créer une nouvelle annonce
  *     security:
  *       - bearerAuth: []
- *     description: Permet à un propriétaire de créer une nouvelle annonce pour un bien immobilier
+ *     description: Permet à un propriétaire ou agent de créer une nouvelle annonce pour un appartement
  *     requestBody:
  *       required: true
  *       content:
@@ -19,57 +19,34 @@ const { auth } = require('../middleware/auth');
  *           schema:
  *             type: object
  *             required:
+ *               - apartmentId
  *               - title
  *               - description
- *               - propertyType
- *               - transactionType
  *               - price
  *             properties:
+ *               apartmentId:
+ *                 type: string
+ *                 description: ID de l'appartement
  *               title:
  *                 type: string
  *                 description: Titre de l'annonce
  *               description:
  *                 type: string
- *                 description: Description détaillée de l'annonce
- *               propertyType:
- *                 type: string
- *                 enum: [appartement, maison, terrain, bureau, commerce]
- *               transactionType:
- *                 type: string
- *                 enum: [location, vente]
+ *                 description: Description détaillée
  *               price:
- *                 type: object
- *                 properties:
- *                   amount:
- *                     type: number
- *                   currency:
- *                     type: string
- *                     default: CDF
- *                   period:
- *                     type: string
- *                     enum: [mois, trimestre, annee]
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *               features:
- *                 type: array
- *                 items:
- *                   type: string
- *               location:
- *                 type: object
- *                 properties:
- *                   address:
- *                     type: string
- *                   city:
- *                     type: string
- *                   coordinates:
- *                     type: object
- *                     properties:
- *                       latitude:
- *                         type: number
- *                       longitude:
- *                         type: number
+ *                 type: number
+ *                 description: Prix mensuel de location
+ *               availableFrom:
+ *                 type: string
+ *                 format: date
+ *                 description: Date de disponibilité
+ *               minimumStay:
+ *                 type: number
+ *                 description: Durée minimum de location en mois
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, reserved, rented]
+ *                 default: active
  *     responses:
  *       201:
  *         description: Annonce créée avec succès
@@ -77,12 +54,14 @@ const { auth } = require('../middleware/auth');
  *         description: Données invalides
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à créer une annonce pour cet appartement
  */
-router.post('/', auth(['proprietaire', 'admin']), listingController.createListing);
+router.post('/', auth(['proprietaire', 'admin', 'agent']), listingController.createListing);
 
 /**
  * @swagger
- * /api/listings:
+ * /api/v1/listings:
  *   get:
  *     tags: [Listings]
  *     summary: Liste toutes les annonces
@@ -101,17 +80,11 @@ router.post('/', auth(['proprietaire', 'admin']), listingController.createListin
  *           default: 10
  *         description: Nombre d'éléments par page
  *       - in: query
- *         name: propertyType
+ *         name: status
  *         schema:
  *           type: string
- *           enum: [appartement, maison, terrain, bureau, commerce]
- *         description: Type de bien
- *       - in: query
- *         name: transactionType
- *         schema:
- *           type: string
- *           enum: [location, vente]
- *         description: Type de transaction
+ *           enum: [active, inactive, reserved, rented]
+ *         description: Filtrer par statut
  *       - in: query
  *         name: minPrice
  *         schema:
@@ -122,35 +95,15 @@ router.post('/', auth(['proprietaire', 'admin']), listingController.createListin
  *         schema:
  *           type: number
  *         description: Prix maximum
- *       - in: query
- *         name: city
- *         schema:
- *           type: string
- *         description: Ville
  *     responses:
  *       200:
  *         description: Liste des annonces
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Listing'
- *                 total:
- *                   type: integer
- *                 page:
- *                   type: integer
- *                 pages:
- *                   type: integer
  */
 router.get('/', listingController.getAllListings);
 
 /**
  * @swagger
- * /api/listings/{id}:
+ * /api/v1/listings/{id}:
  *   get:
  *     tags: [Listings]
  *     summary: Obtenir les détails d'une annonce
@@ -164,10 +117,6 @@ router.get('/', listingController.getAllListings);
  *     responses:
  *       200:
  *         description: Détails de l'annonce
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Listing'
  *       404:
  *         description: Annonce non trouvée
  */
@@ -175,7 +124,7 @@ router.get('/:id', listingController.getListingById);
 
 /**
  * @swagger
- * /api/listings/{id}:
+ * /api/v1/listings/{id}:
  *   put:
  *     tags: [Listings]
  *     summary: Mettre à jour une annonce
@@ -193,7 +142,22 @@ router.get('/:id', listingController.getListingById);
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Listing'
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               availableFrom:
+ *                 type: string
+ *                 format: date
+ *               minimumStay:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, reserved, rented]
  *     responses:
  *       200:
  *         description: Annonce mise à jour avec succès
@@ -201,12 +165,14 @@ router.get('/:id', listingController.getListingById);
  *         description: Annonce non trouvée
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à modifier cette annonce
  */
-router.put('/:id', auth(['proprietaire', 'admin']), listingController.updateListing);
+router.put('/:id', auth(['proprietaire', 'admin', 'agent']), listingController.updateListing);
 
 /**
  * @swagger
- * /api/listings/{id}:
+ * /api/v1/listings/{id}:
  *   delete:
  *     tags: [Listings]
  *     summary: Supprimer une annonce
@@ -226,12 +192,14 @@ router.put('/:id', auth(['proprietaire', 'admin']), listingController.updateList
  *         description: Annonce non trouvée
  *       401:
  *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à supprimer cette annonce
  */
-router.delete('/:id', auth(['proprietaire', 'admin']), listingController.deleteListing);
+router.delete('/:id', auth(['proprietaire', 'admin', 'agent']), listingController.deleteListing);
 
 /**
  * @swagger
- * /api/listings/{id}/toggle-favorite:
+ * /api/v1/listings/{id}/toggle-favorite:
  *   post:
  *     tags: [Listings]
  *     summary: Ajouter/Retirer une annonce des favoris

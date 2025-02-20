@@ -31,10 +31,8 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: process.env.NODE_ENV === 'production' 
-          ? 'https://api-immo.com' 
-          : 'http://localhost:8000',
-        description: process.env.NODE_ENV === 'production' ? 'Serveur de production' : 'Serveur de développement'
+        url: 'http://localhost:8000',
+        description:'Serveur de développement'
       }
     ],
     components: {
