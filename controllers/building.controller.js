@@ -226,4 +226,41 @@ exports.addBuildingDocument = async (req, res) => {
     }
 };
 
+exports.getBuildingsByUserId = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const skip = (page - 1) * limit;
+        
+        const userId = req.params.userId;
+
+        const query = { owner: userId };
+
+        const total = await Building.countDocuments(query);
+        const buildings = await Building.find(query)
+            .populate('owner', 'firstName lastName email')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const pages = Math.ceil(total / limit);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                buildings,
+                total,
+                page,
+                pages
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des immeubles',
+            error: error.message
+        });
+    }
+};
+
 module.exports = exports;

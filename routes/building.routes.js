@@ -96,7 +96,7 @@ router.post('/', auth(['proprietaire', 'admin'], { requireVerification: false })
  *       401:
  *         description: Non autorisé
  */
-router.get('/', auth(['proprietaire', 'admin']), buildingController.getAllBuildings);
+router.get('/', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.getAllBuildings);
 
 /**
  * @swagger
@@ -238,5 +238,42 @@ router.delete('/:id', auth(['proprietaire', 'admin']), buildingController.delete
  *         description: Non autorisé
  */
 router.post('/:id/documents', auth(['proprietaire', 'admin']), buildingController.addBuildingDocument);
+
+/**
+ * @swagger
+ * /api/v1/buildings/user/{userId}:
+ *   get:
+ *     tags: [Buildings]
+ *     summary: Obtenir les immeubles d'un utilisateur spécifique
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'utilisateur
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de la page
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *     responses:
+ *       200:
+ *         description: Liste des immeubles de l'utilisateur
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: Utilisateur non trouvé
+ */
+router.get('/user/:userId', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.getBuildingsByUserId);
 
 module.exports = router;
