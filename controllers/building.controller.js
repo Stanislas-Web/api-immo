@@ -263,4 +263,62 @@ exports.getBuildingsByUserId = async (req, res) => {
     }
 };
 
+exports.getTotalApartmentsByUser = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        // Trouver d'abord tous les buildings de l'utilisateur
+        const buildings = await Building.find({ owner: userId });
+        
+        if (!buildings.length) {
+            return res.status(200).json({
+                success: true,
+                total: 0,
+                message: "L'utilisateur n'a pas de buildings"
+            });
+        }
+
+        // Obtenir les IDs des buildings
+        const buildingIds = buildings.map(building => building._id);
+
+        // Compter le nombre total d'appartements dans ces buildings
+        const totalApartments = await Apartment.countDocuments({
+            buildingId: { $in: buildingIds }
+        });
+
+        // Obtenir les détails des appartements
+        const apartments = await Apartment.find({
+            buildingId: { $in: buildingIds }
+        }).populate('buildingId', 'name address');
+
+        // Grouper les appartements par building
+        const apartmentsByBuilding = buildings.map(building => {
+            const buildingApartments = apartments.filter(
+                apt => apt.buildingId._id.toString() === building._id.toString()
+            );
+            return {
+                buildingId: building._id,
+                buildingName: building.name,
+                address: building.address,
+                totalApartments: buildingApartments.length,
+                apartments: buildingApartments
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            totalBuildings: buildings.length,
+            totalApartments,
+            details: apartmentsByBuilding
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération du total des appartements",
+            error: error.message
+        });
+    }
+};
+
 module.exports = exports;

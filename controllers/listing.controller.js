@@ -245,3 +245,24 @@ exports.toggleFavorite = async (req, res) => {
         });
     }
 };
+
+exports.getListingsByUserId = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const listings = await Listing.find({ publisher: userId })
+            .populate('apartmentId')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: listings.length,
+            data: listings
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des annonces',
+            error: error.message
+        });
+    }
+};

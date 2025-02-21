@@ -222,4 +222,25 @@ router.delete('/:id', auth(['proprietaire', 'admin', 'agent']), listingControlle
  */
 router.post('/:id/toggle-favorite', auth(), listingController.toggleFavorite);
 
+/**
+ * @swagger
+ * /api/v1/listings/user/{userId}:
+ *   get:
+ *     tags: [Listings]
+ *     summary: Récupérer toutes les annonces d'un utilisateur
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'utilisateur
+ *     responses:
+ *       200:
+ *         description: Liste des annonces de l'utilisateur récupérée avec succès
+ *       500:
+ *         description: Erreur serveur
+ */
+router.get('/user/:userId', listingController.getListingsByUserId);
+
 module.exports = router;

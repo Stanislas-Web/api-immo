@@ -274,4 +274,49 @@ router.post('/:id/documents', auth(['proprietaire', 'admin'], { requireVerificat
  */
 router.get('/user/:userId', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.getBuildingsByUserId);
 
+/**
+ * @swagger
+ * /api/v1/buildings/user/{userId}/apartments:
+ *   get:
+ *     tags: [Buildings]
+ *     summary: Obtenir le total des appartements d'un utilisateur dans ses buildings
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'utilisateur
+ *     responses:
+ *       200:
+ *         description: Total des appartements récupéré avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 totalBuildings:
+ *                   type: integer
+ *                   description: Nombre total de buildings
+ *                 totalApartments:
+ *                   type: integer
+ *                   description: Nombre total d'appartements
+ *                 details:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       buildingId:
+ *                         type: string
+ *                       buildingName:
+ *                         type: string
+ *                       totalApartments:
+ *                         type: integer
+ *       500:
+ *         description: Erreur serveur
+ */
+router.get('/user/:userId/apartments', buildingController.getTotalApartmentsByUser);
+
 module.exports = router;
