@@ -342,3 +342,31 @@ exports.deleteImage = async (req, res) => {
         });
     }
 };
+
+exports.getApartmentsByBuilding = async (req, res) => {
+    try {
+        const building = await Building.findById(req.params.buildingId);
+        if (!building) {
+            return res.status(404).json({
+                success: false,
+                message: 'Immeuble non trouvé'
+            });
+        }
+
+        const apartments = await Apartment.find({ buildingId: req.params.buildingId })
+            .populate('currentTenant', 'firstName lastName email phone')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: apartments.length,
+            data: apartments
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des appartements',
+            error: error.message
+        });
+    }
+};

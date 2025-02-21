@@ -172,6 +172,37 @@ router.get('/', auth(['proprietaire', 'admin', 'locataire', 'agent'], { requireV
 
 /**
  * @swagger
+ * /api/v1/apartments/building/{buildingId}:
+ *   get:
+ *     tags: [Apartments]
+ *     summary: Obtenir tous les appartements d'un immeuble
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buildingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'immeuble
+ *     responses:
+ *       200:
+ *         description: Liste des appartements de l'immeuble
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Apartment'
+ *       404:
+ *         description: Immeuble non trouvé
+ *       401:
+ *         description: Non autorisé
+ */
+router.get('/building/:buildingId', auth(['proprietaire', 'admin', 'locataire', 'agent'], { requireVerification: false }), apartmentController.getApartmentsByBuilding);
+
+/**
+ * @swagger
  * /api/v1/apartments/{id}:
  *   get:
  *     tags: [Apartments]
