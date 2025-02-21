@@ -52,7 +52,7 @@ const mongoose = require('mongoose');
  *               description: Devise du prix
  *             paymentFrequency:
  *               type: string
- *               enum: [mensuel, trimestriel, semestriel, annuel]
+ *               enum: [day, mensuel, trimestriel, semestriel, annuel]
  *               default: mensuel
  *               description: Fréquence de paiement
  *         description:
@@ -167,7 +167,7 @@ const apartmentSchema = new Schema({
     currency: { type: String, default: 'CDF' },
     paymentFrequency: { 
       type: String, 
-      enum: ['mensuel', 'trimestriel', 'semestriel', 'annuel'],
+      enum: ['day', 'mensuel', 'trimestriel', 'semestriel', 'annuel'],
       default: 'mensuel'
     }
   },
