@@ -111,7 +111,7 @@ const upload = require('../middleware/upload');
  *       403:
  *         description: Non autorisé à créer un appartement dans cet immeuble
  */
-router.post('/', auth(['proprietaire', 'admin']), apartmentController.createApartment);
+router.post('/', auth(['proprietaire', 'admin'], { requireVerification: false }), apartmentController.createApartment);
 
 /**
  * @swagger
@@ -168,7 +168,7 @@ router.post('/', auth(['proprietaire', 'admin']), apartmentController.createApar
  *       401:
  *         description: Non autorisé
  */
-router.get('/', auth(['proprietaire', 'admin', 'locataire', 'agent']), apartmentController.getAllApartments);
+router.get('/', auth(['proprietaire', 'admin', 'locataire', 'agent'], { requireVerification: false }), apartmentController.getAllApartments);
 
 /**
  * @swagger
@@ -193,7 +193,7 @@ router.get('/', auth(['proprietaire', 'admin', 'locataire', 'agent']), apartment
  *       401:
  *         description: Non autorisé
  */
-router.get('/:id', auth(['proprietaire', 'admin', 'locataire', 'agent']), apartmentController.getApartmentById);
+router.get('/:id', auth(['proprietaire', 'admin', 'locataire', 'agent'], { requireVerification: false }), apartmentController.getApartmentById);
 
 /**
  * @swagger
@@ -270,7 +270,7 @@ router.get('/:id', auth(['proprietaire', 'admin', 'locataire', 'agent']), apartm
  *       403:
  *         description: Non autorisé à modifier cet appartement
  */
-router.put('/:id', auth(['proprietaire', 'admin']), apartmentController.updateApartment);
+router.put('/:id', auth(['proprietaire', 'admin'], { requireVerification: false }), apartmentController.updateApartment);
 
 /**
  * @swagger
@@ -297,7 +297,7 @@ router.put('/:id', auth(['proprietaire', 'admin']), apartmentController.updateAp
  *       403:
  *         description: Non autorisé à supprimer cet appartement
  */
-router.delete('/:id', auth(['proprietaire', 'admin']), apartmentController.deleteApartment);
+router.delete('/:id', auth(['proprietaire', 'admin'], { requireVerification: false }), apartmentController.deleteApartment);
 
 /**
  * @swagger
@@ -334,7 +334,7 @@ router.delete('/:id', auth(['proprietaire', 'admin']), apartmentController.delet
  *       401:
  *         description: Non autorisé
  */
-router.post('/:id/images', auth(['proprietaire', 'admin']), upload.array('images', 10), apartmentController.addImages);
+router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification: false }), upload.array('images', 10), apartmentController.addImages);
 
 /**
  * @swagger
@@ -365,6 +365,6 @@ router.post('/:id/images', auth(['proprietaire', 'admin']), upload.array('images
  *       401:
  *         description: Non autorisé
  */
-router.delete('/:id/images/:imageId', auth(['proprietaire', 'admin']), apartmentController.deleteImage);
+router.delete('/:id/images/:imageId', auth(['proprietaire', 'admin'], { requireVerification: false }), apartmentController.deleteImage);
 
 module.exports = router;
