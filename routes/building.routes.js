@@ -97,7 +97,6 @@ router.post('/', auth(['proprietaire', 'admin'], { requireVerification: false })
  *         description: Non autorisé
  */
 router.get('/', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.getAllBuildings);
-
 /**
  * @swagger
  * /api/v1/buildings/{id}:
@@ -122,7 +121,6 @@ router.get('/', auth(['proprietaire', 'admin'], { requireVerification: false }),
  *         description: Non autorisé
  */
 router.get('/:id', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.getBuildingById);
-
 /**
  * @swagger
  * /api/v1/buildings/{id}:
