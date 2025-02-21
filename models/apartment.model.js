@@ -19,7 +19,6 @@ const mongoose = require('mongoose');
  *       properties:
  *         buildingId:
  *           type: string
- *           format: uuid
  *           description: Référence à l'immeuble
  *         number:
  *           type: string
@@ -57,7 +56,7 @@ const mongoose = require('mongoose');
  *               description: Fréquence de paiement
  *         description:
  *           type: string
- *           description: Description détaillée de l'appartement
+ *           description: Description de l'appartement
  *         features:
  *           type: object
  *           properties:
@@ -97,7 +96,6 @@ const mongoose = require('mongoose');
  *           description: État actuel de l'appartement
  *         currentTenant:
  *           type: string
- *           format: uuid
  *           description: Référence au locataire actuel
  *         leaseHistory:
  *           type: array
@@ -106,29 +104,20 @@ const mongoose = require('mongoose');
  *             properties:
  *               tenant:
  *                 type: string
- *                 format: uuid
  *                 description: Référence au locataire
  *               startDate:
  *                 type: string
  *                 format: date
- *                 description: Date de début du bail
+ *                 description: Date de début de location
  *               endDate:
  *                 type: string
  *                 format: date
- *                 description: Date de fin du bail
- *               monthlyRent:
- *                 type: number
- *                 description: Loyer mensuel
- *               status:
- *                 type: string
- *                 enum: [actif, terminé, résilié]
- *                 default: actif
- *                 description: État du bail
+ *                 description: Date de fin de location
  *       example:
- *         buildingId: "1234567890"
+ *         buildingId: "507f1f77bcf86cd799439011"
  *         number: "A101"
  *         type: "f3"
- *         floor: 3
+ *         floor: 1
  *         surface: 75
  *         rooms: 3
  *         bathrooms: 2
@@ -159,44 +148,45 @@ const apartmentSchema = new Schema({
     required: true 
   },
   floor: { type: Number, required: true },
-  surface: { type: Number, required: true }, // en m²
+  surface: { type: Number, required: true }, 
   rooms: { type: Number, required: true },
   bathrooms: { type: Number, required: true },
-  price: {
-    amount: { type: Number, required: true },
-    currency: { type: String, default: 'CDF' },
-    paymentFrequency: { 
-      type: String, 
-      enum: ['day', 'mensuel', 'trimestriel', 'semestriel', 'annuel'],
-      default: 'mensuel'
+  price: { 
+    type: Object, 
+    required: true,
+    properties: {
+      amount: { type: Number, required: true },
+      currency: { type: String, default: 'CDF' },
+      paymentFrequency: { 
+        type: String, 
+        enum: ['day', 'mensuel', 'trimestriel', 'semestriel', 'annuel'],
+        default: 'mensuel'
+      }
     }
   },
+  description: { type: String },
+  features: {
+    type: Object,
+    properties: {
+      furnished: { type: Boolean, default: false },
+      airConditioning: { type: Boolean, default: false },
+      balcony: { type: Boolean, default: false },
+      internet: { type: Boolean, default: false },
+      parking: { type: Boolean, default: false },
+      securitySystem: { type: Boolean, default: false }
+    }
+  },
+  images: [{ type: String }],
   status: {
     type: String,
     enum: ['disponible', 'loué', 'en_rénovation', 'réservé'],
     default: 'disponible'
   },
-  features: {
-    furnished: { type: Boolean, default: false },
-    airConditioning: { type: Boolean, default: false },
-    balcony: { type: Boolean, default: false },
-    internet: { type: Boolean, default: false },
-    parking: { type: Boolean, default: false },
-    securitySystem: { type: Boolean, default: false }
-  },
-  images: [{ type: String }],
-  description: { type: String },
   currentTenant: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   leaseHistory: [{
     tenant: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     startDate: { type: Date },
-    endDate: { type: Date },
-    monthlyRent: { type: Number },
-    status: { 
-      type: String, 
-      enum: ['actif', 'terminé', 'résilié'],
-      default: 'actif'
-    }
+    endDate: { type: Date }
   }]
 }, {
   timestamps: true,

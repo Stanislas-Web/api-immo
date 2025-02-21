@@ -23,6 +23,10 @@ const upload = require('../middleware/upload');
  *               - buildingId
  *               - number
  *               - type
+ *               - floor
+ *               - surface
+ *               - rooms
+ *               - bathrooms
  *               - price
  *             properties:
  *               buildingId:
@@ -34,23 +38,69 @@ const upload = require('../middleware/upload');
  *               type:
  *                 type: string
  *                 enum: [studio, f1, f2, f3, f4, f5, duplex, penthouse]
- *               price:
+ *                 description: Type d'appartement
+ *               floor:
  *                 type: number
- *                 description: Prix mensuel de location
+ *                 description: Étage de l'appartement
  *               surface:
  *                 type: number
  *                 description: Surface en mètres carrés
+ *               rooms:
+ *                 type: number
+ *                 description: Nombre de pièces
+ *               bathrooms:
+ *                 type: number
+ *                 description: Nombre de salles de bain
+ *               price:
+ *                 type: object
+ *                 properties:
+ *                   amount:
+ *                     type: number
+ *                     description: Prix mensuel du loyer
+ *                   currency:
+ *                     type: string
+ *                     default: CDF
+ *                     description: Devise du prix
+ *                   paymentFrequency:
+ *                     type: string
+ *                     enum: [day, mensuel, trimestriel, semestriel, annuel]
+ *                     default: mensuel
+ *                     description: Fréquence de paiement
  *               description:
  *                 type: string
+ *                 description: Description de l'appartement
  *               features:
- *                 type: array
- *                 items:
- *                   type: string
- *                   enum: [meuble, climatisation, balcon, parking, internet]
+ *                 type: object
+ *                 properties:
+ *                   furnished:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Appartement meublé
+ *                   airConditioning:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Climatisation
+ *                   balcony:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Balcon
+ *                   internet:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Internet
+ *                   parking:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Parking
+ *                   securitySystem:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Système de sécurité
  *               status:
  *                 type: string
- *                 enum: [disponible, loue, maintenance]
+ *                 enum: [disponible, loué, en_rénovation, réservé]
  *                 default: disponible
+ *                 description: État actuel de l'appartement
  *     responses:
  *       201:
  *         description: Appartement créé avec succès
@@ -100,7 +150,7 @@ router.post('/', auth(['proprietaire', 'admin']), apartmentController.createApar
  *         name: status
  *         schema:
  *           type: string
- *           enum: [disponible, loue, maintenance]
+ *           enum: [disponible, loué, en_rénovation, réservé]
  *         description: Filtrer par statut
  *       - in: query
  *         name: minPrice
@@ -172,20 +222,44 @@ router.get('/:id', auth(['proprietaire', 'admin', 'locataire', 'agent']), apartm
  *               type:
  *                 type: string
  *                 enum: [studio, f1, f2, f3, f4, f5, duplex, penthouse]
- *               price:
+ *               floor:
  *                 type: number
  *               surface:
  *                 type: number
+ *               rooms:
+ *                 type: number
+ *               bathrooms:
+ *                 type: number
+ *               price:
+ *                 type: object
+ *                 properties:
+ *                   amount:
+ *                     type: number
+ *                   currency:
+ *                     type: string
+ *                   paymentFrequency:
+ *                     type: string
+ *                     enum: [day, mensuel, trimestriel, semestriel, annuel]
  *               description:
  *                 type: string
  *               features:
- *                 type: array
- *                 items:
- *                   type: string
- *                   enum: [meuble, climatisation, balcon, parking, internet]
+ *                 type: object
+ *                 properties:
+ *                   furnished:
+ *                     type: boolean
+ *                   airConditioning:
+ *                     type: boolean
+ *                   balcony:
+ *                     type: boolean
+ *                   internet:
+ *                     type: boolean
+ *                   parking:
+ *                     type: boolean
+ *                   securitySystem:
+ *                     type: boolean
  *               status:
  *                 type: string
- *                 enum: [disponible, loue, maintenance]
+ *                 enum: [disponible, loué, en_rénovation, réservé]
  *     responses:
  *       200:
  *         description: Appartement mis à jour avec succès
