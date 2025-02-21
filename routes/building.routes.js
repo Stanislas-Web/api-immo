@@ -121,7 +121,7 @@ router.get('/', auth(['proprietaire', 'admin'], { requireVerification: false }),
  *       401:
  *         description: Non autorisé
  */
-router.get('/:id', auth(['proprietaire', 'admin']), buildingController.getBuildingById);
+router.get('/:id', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.getBuildingById);
 
 /**
  * @swagger
@@ -154,7 +154,7 @@ router.get('/:id', auth(['proprietaire', 'admin']), buildingController.getBuildi
  *       403:
  *         description: Non autorisé à modifier cet immeuble
  */
-router.put('/:id', auth(['proprietaire', 'admin']), buildingController.updateBuilding);
+router.put('/:id', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.updateBuilding);
 
 /**
  * @swagger
@@ -181,7 +181,7 @@ router.put('/:id', auth(['proprietaire', 'admin']), buildingController.updateBui
  *       403:
  *         description: Non autorisé à supprimer cet immeuble
  */
-router.delete('/:id', auth(['proprietaire', 'admin']), buildingController.deleteBuilding);
+router.delete('/:id', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.deleteBuilding);
 
 /**
  * @swagger
@@ -237,7 +237,7 @@ router.delete('/:id', auth(['proprietaire', 'admin']), buildingController.delete
  *       401:
  *         description: Non autorisé
  */
-router.post('/:id/documents', auth(['proprietaire', 'admin']), buildingController.addBuildingDocument);
+router.post('/:id/documents', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.addBuildingDocument);
 
 /**
  * @swagger
