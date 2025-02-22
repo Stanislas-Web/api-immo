@@ -75,7 +75,7 @@ exports.getAllListings = async (req, res) => {
                     select: 'name address'
                 }
             })
-            .populate('publisher', 'firstName lastName email phone')
+            .populate('publisher', 'firstName lastName phone')
             .skip(skip)
             .limit(limit)
             .sort({ createdAt: -1 });
@@ -110,7 +110,7 @@ exports.getListingById = async (req, res) => {
                     select: 'name address features'
                 }
             })
-            .populate('publisher', 'firstName lastName email phone whatsappNumber');
+            .populate('publisher', 'firstName lastName phone whatsappNumber');
 
         if (!listing) {
             return res.status(404).json({

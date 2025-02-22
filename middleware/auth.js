@@ -3,7 +3,7 @@ const User = require('../models/user.model');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-const auth = (roles = [], options = { requireVerification: true }) => {
+const auth = (roles = [], options = { requireVerification: false }) => {
     return async (req, res, next) => {
         try {
             let token;
