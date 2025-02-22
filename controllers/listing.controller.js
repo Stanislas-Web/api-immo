@@ -24,6 +24,7 @@ exports.createListing = async (req, res) => {
 
         const listing = new Listing({
             ...req.body,
+            price: typeof req.body.price === 'number' ? { amount: req.body.price } : req.body.price,
             publisher: req.user._id
         });
 
