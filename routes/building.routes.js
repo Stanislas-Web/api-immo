@@ -96,7 +96,7 @@ router.post('/', auth(['proprietaire', 'admin'], { requireVerification: false })
  *       401:
  *         description: Non autorisé
  */
-router.get('/', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.getAllBuildings);
+router.get('/', auth(['proprietaire', 'admin', 'locataire'], { requireVerification: false }), buildingController.getAllBuildings);
 /**
  * @swagger
  * /api/v1/buildings/{id}:
