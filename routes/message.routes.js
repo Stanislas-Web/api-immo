@@ -82,6 +82,52 @@ router.post('/', auth(['proprietaire', 'admin', 'agent', 'locataire']), messageC
 router.get('/', auth(['proprietaire', 'admin', 'agent', 'locataire']), messageController.getMessages);
 
 // Move the conversations routes before the :id routes to prevent path conflicts
+/**
+ * @swagger
+ * /api/v1/messages/conversations:
+ *   get:
+ *     tags: [Messages]
+ *     summary: Obtenir toutes les conversations de l'utilisateur
+ *     security:
+ *       - bearerAuth: []
+ *     description: Récupère la liste de toutes les conversations de l'utilisateur connecté
+ *     responses:
+ *       200:
+ *         description: Liste des conversations récupérée avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       participants:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                             firstName:
+ *                               type: string
+ *                             lastName:
+ *                               type: string
+ *                             email:
+ *                               type: string
+ *                             profilePicture:
+ *                               type: string
+ *       401:
+ *         description: Non autorisé
+ *       500:
+ *         description: Erreur serveur
+ */
 router.get('/conversations', auth(), messageController.getConversations);
 
 /**
@@ -129,6 +175,59 @@ router.get('/conversations', auth(), messageController.getConversations);
  */
 router.post('/conversations', auth(), messageController.createConversation);
 
+/**
+ * @swagger
+ * /api/v1/messages/conversations/{id}:
+ *   get:
+ *     tags: [Messages]
+ *     summary: Obtenir une conversation spécifique
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la conversation
+ *     description: Récupère les détails d'une conversation spécifique
+ *     responses:
+ *       200:
+ *         description: Conversation récupérée avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     participants:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           profilePicture:
+ *                             type: string
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: Conversation non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
 router.get('/conversations/:id', auth(), messageController.getConversationById);
 
 /**
@@ -188,6 +287,101 @@ router.get('/conversations/:id', auth(), messageController.getConversationById);
  */
 router.post('/conversations/:id/messages', auth(), messageController.sendMessage);
 
+/**
+ * @swagger
+ * /api/v1/messages/conversations/{id}/messages:
+ *   get:
+ *     tags: [Messages]
+ *     summary: Obtenir tous les messages d'une conversation
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la conversation
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de la page
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Nombre de messages par page
+ *     description: Récupère tous les messages d'une conversation spécifique avec pagination
+ *     responses:
+ *       200:
+ *         description: Messages récupérés avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       conversation:
+ *                         type: string
+ *                       sender:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           profilePicture:
+ *                             type: string
+ *                       content:
+ *                         type: string
+ *                       attachments:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             type:
+ *                               type: string
+ *                               enum: [image, document, audio]
+ *                             url:
+ *                               type: string
+ *                             name:
+ *                               type: string
+ *                       readBy:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     page:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: Conversation non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
 router.get('/conversations/:id/messages', auth(), messageController.getMessages);
 
 // Then place the conversation-specific routes
