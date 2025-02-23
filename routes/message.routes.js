@@ -92,7 +92,7 @@ router.get('/conversations', auth(), messageController.getConversations);
  *     summary: Créer une nouvelle conversation
  *     security:
  *       - bearerAuth: []
- *     description: Permet de créer une nouvelle conversation avec un autre utilisateur
+ *     description: Permet de créer une nouvelle conversation avec un ou plusieurs utilisateurs
  *     requestBody:
  *       required: true
  *       content:
@@ -100,14 +100,25 @@ router.get('/conversations', auth(), messageController.getConversations);
  *           schema:
  *             type: object
  *             required:
- *               - participantId
+ *               - participants
+ *               - type
  *             properties:
- *               participantId:
+ *               participants:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Liste des IDs des participants à la conversation
+ *               type:
  *                 type: string
- *                 description: ID de l'autre participant
- *               listingId:
- *                 type: string
- *                 description: ID de l'annonce concernée (optionnel)
+ *                 enum: [direct, group]
+ *                 description: Type de conversation (direct pour 2 personnes, group pour plus)
+ *               metadata:
+ *                 type: object
+ *                 description: Métadonnées additionnelles (optionnel)
+ *                 properties:
+ *                   listingId:
+ *                     type: string
+ *                     description: ID de l'annonce concernée (optionnel)
  *     responses:
  *       201:
  *         description: Conversation créée avec succès

@@ -5,6 +5,21 @@ exports.createConversation = async (req, res) => {
     try {
         const { participants, type, metadata } = req.body;
 
+        // Validate required fields
+        if (!participants || !Array.isArray(participants) || participants.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le champ participants est requis et doit être un tableau non vide'
+            });
+        }
+
+        if (!type) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le champ type est requis'
+            });
+        }
+
         // Vérifier si tous les participants existent
         const users = await User.find({ _id: { $in: participants } });
         if (users.length !== participants.length) {
