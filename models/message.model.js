@@ -12,14 +12,27 @@ const { Schema, model } = mongoose;
  *         - sender
  *         - content
  *       properties:
+ *         _id:
+ *           type: string
+ *           format: uuid
+ *           description: Identifiant unique du message
  *         conversation:
- *           type: string
- *           format: uuid
- *           description: Référence à la conversation
+ *           type: object
+ *           properties:
+ *             _id:
+ *               type: string
+ *               format: uuid
+ *               description: Identifiant de la conversation associée
+ *           description: Référence à la conversation (populated)
  *         sender:
- *           type: string
- *           format: uuid
- *           description: Référence à l'utilisateur qui envoie le message
+ *           type: object
+ *           properties:
+ *             _id:
+ *               type: string
+ *               format: uuid
+ *             name:
+ *               type: string
+ *           description: Référence à l'utilisateur qui envoie le message (populated)
  *         content:
  *           type: string
  *           description: Contenu du message
@@ -47,8 +60,12 @@ const { Schema, model } = mongoose;
  *           default: envoyé
  *           description: Statut du message
  *       example:
- *         conversation: "507f1f77bcf86cd799439011"
- *         sender: "507f1f77bcf86cd799439012"
+ *         _id: "507f1f77bcf86cd799439011"
+ *         conversation:
+ *           _id: "507f1f77bcf86cd799439012"
+ *         sender:
+ *           _id: "507f1f77bcf86cd799439013"
+ *           name: "John Doe"
  *         content: "Bonjour, je suis intéressé par votre appartement."
  *         status: "envoyé"
  *         readBy: []

@@ -28,6 +28,11 @@ const { auth } = require('../middleware/auth');
  *               content:
  *                 type: string
  *                 description: Contenu du message
+ *               type:
+ *                 type: string
+ *                 enum: [text, image, document]
+ *                 default: text
+ *                 description: Type du message (text par défaut)
  *               listingId:
  *                 type: string
  *                 description: ID de l'annonce concernée (optionnel)
@@ -78,9 +83,100 @@ router.get('/', auth(['proprietaire', 'admin', 'agent', 'locataire']), messageCo
 
 // Move the conversations routes before the :id routes to prevent path conflicts
 router.get('/conversations', auth(), messageController.getConversations);
+
+/**
+ * @swagger
+ * /api/v1/messages/conversations:
+ *   post:
+ *     tags: [Messages]
+ *     summary: Créer une nouvelle conversation
+ *     security:
+ *       - bearerAuth: []
+ *     description: Permet de créer une nouvelle conversation avec un autre utilisateur
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - participantId
+ *             properties:
+ *               participantId:
+ *                 type: string
+ *                 description: ID de l'autre participant
+ *               listingId:
+ *                 type: string
+ *                 description: ID de l'annonce concernée (optionnel)
+ *     responses:
+ *       201:
+ *         description: Conversation créée avec succès
+ *       400:
+ *         description: Données invalides
+ *       401:
+ *         description: Non autorisé
+ */
 router.post('/conversations', auth(), messageController.createConversation);
+
 router.get('/conversations/:id', auth(), messageController.getConversationById);
+
+/**
+ * @swagger
+ * /api/v1/messages/conversations/{id}/messages:
+ *   post:
+ *     tags: [Messages]
+ *     summary: Envoyer un message dans une conversation
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la conversation
+ *     description: Permet d'envoyer un message dans une conversation existante
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: Contenu du message
+ *               type:
+ *                 type: string
+ *                 enum: [text, image, document]
+ *                 default: text
+ *                 description: Type du message (text par défaut)
+ *               attachments:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       enum: [image, document, audio]
+ *                     url:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *     responses:
+ *       201:
+ *         description: Message envoyé avec succès
+ *       400:
+ *         description: Données invalides
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: Conversation non trouvée
+ */
 router.post('/conversations/:id/messages', auth(), messageController.sendMessage);
+
 router.get('/conversations/:id/messages', auth(), messageController.getMessages);
 
 // Then place the conversation-specific routes
