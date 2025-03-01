@@ -398,4 +398,61 @@ router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification
  */
 router.delete('/:id/images/:imageId', auth(['proprietaire', 'admin'], { requireVerification: false }), apartmentController.deleteImage);
 
+/**
+ * @swagger
+ * /api/v1/apartments/{id}/tenant:
+ *   post:
+ *     tags: [Apartments]
+ *     summary: Assigner un locataire à un appartement
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'appartement
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tenantId
+ *               - startDate
+ *               - monthlyRent
+ *             properties:
+ *               tenantId:
+ *                 type: string
+ *                 description: ID du locataire
+ *               startDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Date de début du bail
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Date de fin du bail (optionnel)
+ *               monthlyRent:
+ *                 type: number
+ *                 description: Montant du loyer mensuel
+ *               securityDeposit:
+ *                 type: number
+ *                 description: Montant de la caution (optionnel)
+ *     responses:
+ *       200:
+ *         description: Locataire assigné avec succès
+ *       400:
+ *         description: Données invalides ou appartement non disponible
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Non autorisé à modifier cet appartement
+ *       404:
+ *         description: Appartement non trouvé
+ */
+router.post('/:id/tenant', auth(['proprietaire', 'admin'], { requireVerification: false }), apartmentController.assignTenant);
+
 module.exports = router;

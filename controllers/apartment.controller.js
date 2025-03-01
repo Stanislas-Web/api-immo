@@ -211,13 +211,21 @@ exports.deleteApartment = async (req, res) => {
 
 exports.assignTenant = async (req, res) => {
     try {
-        const { tenantId, startDate, endDate, monthlyRent } = req.body;
+        const { tenantId, startDate, endDate, monthlyRent, securityDeposit } = req.body;
         const apartment = await Apartment.findById(req.params.id);
 
         if (!apartment) {
             return res.status(404).json({
                 success: false,
                 message: 'Appartement non trouvé'
+            });
+        }
+
+        // Vérifier si l'utilisateur est le propriétaire de l'appartement
+        if (apartment.owner.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorisé à modifier cet appartement'
             });
         }
 
@@ -230,7 +238,7 @@ exports.assignTenant = async (req, res) => {
         }
 
         // Vérifier si l'appartement est disponible
-        if (apartment.status !== 'disponible') {
+        if (apartment.status !== 'disponible' && apartment.status !== 'réservé') {
             return res.status(400).json({
                 success: false,
                 message: 'Appartement non disponible'
@@ -242,7 +250,7 @@ exports.assignTenant = async (req, res) => {
         apartment.leaseHistory.push({
             tenant: tenantId,
             startDate,
-            endDate,
+            endDate, // Sera undefined si non fourni
             monthlyRent,
             status: 'actif'
         });
@@ -251,12 +259,33 @@ exports.assignTenant = async (req, res) => {
 
         // Mettre à jour le nombre d'appartements disponibles dans l'immeuble
         const building = await Building.findById(apartment.buildingId);
-        building.availableApartments -= 1;
-        await building.save();
+        if (building) {
+            building.availableApartments -= 1;
+            await building.save();
+        }
+
+        // Créer un carnet de loyer
+        const RentBook = require('../models/rentBook.model');
+        const rentBook = new RentBook({
+            apartmentId: apartment._id,
+            tenantId,
+            ownerId: req.user._id,
+            leaseStartDate: startDate,
+            leaseEndDate: endDate, // Sera undefined si non fourni
+            monthlyRent,
+            securityDeposit: securityDeposit || 0,
+            status: 'actif'
+        });
+
+        await rentBook.save();
 
         res.status(200).json({
             success: true,
-            data: apartment
+            message: 'Locataire assigné et carnet de loyer créé avec succès',
+            data: {
+                apartment,
+                rentBook
+            }
         });
     } catch (error) {
         res.status(500).json({
