@@ -321,4 +321,112 @@ exports.getTotalApartmentsByUser = async (req, res) => {
     }
 };
 
+exports.addBuildingImages = async (req, res) => {
+    try {
+        const building = await Building.findById(req.params.id);
+        
+        if (!building) {
+            return res.status(404).json({
+                success: false,
+                message: 'Immeuble non trouvé'
+            });
+        }
+
+        // Vérifier si l'utilisateur est le propriétaire de l'immeuble
+        if (building.owner.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorisé à modifier cet immeuble'
+            });
+        }
+
+        // Vérifier si des fichiers ont été uploadés
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Aucune image n\'a été fournie'
+            });
+        }
+
+        // Ajouter les chemins des nouvelles images
+        const newImages = req.files.map(file => file.path);
+        
+        // S'assurer que building.images est un tableau
+        if (!building.images) {
+            building.images = [];
+        }
+        
+        building.images = building.images.concat(newImages);
+
+        await building.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Images ajoutées avec succès',
+            data: building
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de l\'ajout des images',
+            error: error.message
+        });
+    }
+};
+
+exports.deleteBuildingImage = async (req, res) => {
+    try {
+        const building = await Building.findById(req.params.id);
+        
+        if (!building) {
+            return res.status(404).json({
+                success: false,
+                message: 'Immeuble non trouvé'
+            });
+        }
+
+        // Vérifier si l'utilisateur est le propriétaire de l'immeuble
+        if (building.owner.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorisé à modifier cet immeuble'
+            });
+        }
+
+        // S'assurer que building.images est un tableau
+        if (!building.images || !Array.isArray(building.images)) {
+            return res.status(404).json({
+                success: false,
+                message: 'Aucune image trouvée pour cet immeuble'
+            });
+        }
+
+        // Trouver l'index de l'image à supprimer
+        const imageIndex = building.images.findIndex(img => img.includes(req.params.imageId));
+
+        if (imageIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Image non trouvée'
+            });
+        }
+
+        // Supprimer l'image du tableau
+        building.images.splice(imageIndex, 1);
+        await building.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Image supprimée avec succès',
+            data: building
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la suppression de l\'image',
+            error: error.message
+        });
+    }
+};
+
 module.exports = exports;

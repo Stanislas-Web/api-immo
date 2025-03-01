@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const buildingController = require('../controllers/building.controller');
 const { auth } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 /**
  * @swagger
@@ -236,6 +237,74 @@ router.delete('/:id', auth(['proprietaire', 'admin'], { requireVerification: fal
  *         description: Non autorisé
  */
 router.post('/:id/documents', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.addBuildingDocument);
+
+/**
+ * @swagger
+ * /api/v1/buildings/{id}/images:
+ *   post:
+ *     tags: [Buildings]
+ *     summary: Ajouter des images à un immeuble
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'immeuble
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Images ajoutées avec succès
+ *       404:
+ *         description: Immeuble non trouvé
+ *       401:
+ *         description: Non autorisé
+ */
+router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification: false }), upload.building.array('images', 10), buildingController.addBuildingImages);
+
+/**
+ * @swagger
+ * /api/v1/buildings/{id}/images/{imageId}:
+ *   delete:
+ *     tags: [Buildings]
+ *     summary: Supprimer une image d'un immeuble
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'immeuble
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'image
+ *     responses:
+ *       200:
+ *         description: Image supprimée avec succès
+ *       404:
+ *         description: Image ou immeuble non trouvé
+ *       401:
+ *         description: Non autorisé
+ */
+router.delete('/:id/images/:imageId', auth(['proprietaire', 'admin'], { requireVerification: false }), buildingController.deleteBuildingImage);
 
 /**
  * @swagger

@@ -365,7 +365,7 @@ router.delete('/:id', auth(['proprietaire', 'admin'], { requireVerification: fal
  *       401:
  *         description: Non autorisé
  */
-router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification: false }), upload.array('images', 10), apartmentController.addImages);
+router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification: false }), upload.apartment.array('images', 10), apartmentController.addImages);
 
 /**
  * @swagger
