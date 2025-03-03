@@ -58,6 +58,9 @@ exports.getAllBuildings = async (req, res) => {
             .skip(skip)
             .limit(limit);
 
+        // Avec Cloudinary, nous n'avons plus besoin de transformer les URLs des images
+        // car elles sont déjà des URLs complètes
+
         const pages = Math.ceil(total / limit);
 
         res.status(200).json({
@@ -70,6 +73,7 @@ exports.getAllBuildings = async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('Erreur dans getAllBuildings:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération des immeubles',
@@ -348,15 +352,57 @@ exports.addBuildingImages = async (req, res) => {
             });
         }
 
-        // Ajouter les chemins des nouvelles images
-        const newImages = req.files.map(file => file.path);
+        // Upload des images sur Cloudinary
+        const cloudinary = require('../config/cloudinary');
+        const uploadPromises = [];
+        
+        // Fonction pour uploader un buffer vers Cloudinary
+        const uploadToCloudinary = (buffer, options) => {
+            return new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    options,
+                    (error, result) => {
+                        if (error) return reject(error);
+                        resolve(result);
+                    }
+                );
+                
+                // Convertir le buffer en stream et l'envoyer à Cloudinary
+                const Readable = require('stream').Readable;
+                const readableStream = new Readable();
+                readableStream.push(buffer);
+                readableStream.push(null);
+                readableStream.pipe(uploadStream);
+            });
+        };
+        
+        // Uploader chaque image
+        for (const file of req.files) {
+            const options = {
+                folder: 'api-immo/buildings',
+                resource_type: 'auto',
+                transformation: [
+                    { width: 1200, crop: 'limit' },
+                    { quality: 'auto' },
+                    { fetch_format: 'auto' }
+                ]
+            };
+            
+            uploadPromises.push(uploadToCloudinary(file.buffer, options));
+        }
+        
+        const uploadResults = await Promise.all(uploadPromises);
+        console.log('Images uploadées sur Cloudinary:', uploadResults);
+        
+        // Ajouter les URLs Cloudinary à l'immeuble
+        const cloudinaryUrls = uploadResults.map(result => result.secure_url);
         
         // S'assurer que building.images est un tableau
         if (!building.images) {
             building.images = [];
         }
         
-        building.images = building.images.concat(newImages);
+        building.images = building.images.concat(cloudinaryUrls);
 
         await building.save();
 
@@ -366,6 +412,7 @@ exports.addBuildingImages = async (req, res) => {
             data: building
         });
     } catch (error) {
+        console.error('Erreur lors de l\'ajout des images:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de l\'ajout des images',
