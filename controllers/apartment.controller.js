@@ -315,9 +315,57 @@ exports.addImages = async (req, res) => {
             });
         }
 
-        // Ajouter les chemins des nouvelles images
-        const newImages = req.files.map(file => file.path);
-        apartment.images = apartment.images.concat(newImages);
+        // Upload des images sur Cloudinary
+        const cloudinary = require('../config/cloudinary');
+        const uploadPromises = [];
+        
+        // Fonction pour uploader un buffer vers Cloudinary
+        const uploadToCloudinary = (buffer, options) => {
+            return new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    options,
+                    (error, result) => {
+                        if (error) return reject(error);
+                        resolve(result);
+                    }
+                );
+                
+                // Convertir le buffer en stream et l'envoyer à Cloudinary
+                const Readable = require('stream').Readable;
+                const readableStream = new Readable();
+                readableStream.push(buffer);
+                readableStream.push(null);
+                readableStream.pipe(uploadStream);
+            });
+        };
+        
+        // Uploader chaque image
+        for (const file of req.files) {
+            const options = {
+                folder: 'api-immo/apartments',
+                resource_type: 'auto',
+                transformation: [
+                    { width: 1200, crop: 'limit' },
+                    { quality: 'auto' },
+                    { fetch_format: 'auto' }
+                ]
+            };
+            
+            uploadPromises.push(uploadToCloudinary(file.buffer, options));
+        }
+        
+        const uploadResults = await Promise.all(uploadPromises);
+        console.log('Images uploadées sur Cloudinary:', uploadResults);
+        
+        // Ajouter les URLs Cloudinary à l'appartement
+        const cloudinaryUrls = uploadResults.map(result => result.secure_url);
+        
+        // S'assurer que apartment.images est un tableau
+        if (!apartment.images) {
+            apartment.images = [];
+        }
+        
+        apartment.images = apartment.images.concat(cloudinaryUrls);
 
         await apartment.save();
 
@@ -327,6 +375,7 @@ exports.addImages = async (req, res) => {
             data: apartment
         });
     } catch (error) {
+        console.error('Erreur lors de l\'ajout des images:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de l\'ajout des images',
@@ -346,6 +395,15 @@ exports.deleteImage = async (req, res) => {
             });
         }
 
+        // S'assurer que apartment.images est un tableau
+        if (!apartment.images || !Array.isArray(apartment.images)) {
+            return res.status(404).json({
+                success: false,
+                message: 'Aucune image trouvée pour cet appartement'
+            });
+        }
+
+        // Trouver l'index de l'image à supprimer
         const imageIndex = apartment.images.findIndex(img => img.includes(req.params.imageId));
         
         if (imageIndex === -1) {
@@ -361,9 +419,11 @@ exports.deleteImage = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Image supprimée avec succès'
+            message: 'Image supprimée avec succès',
+            data: apartment
         });
     } catch (error) {
+        console.error('Erreur lors de la suppression de l\'image:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la suppression de l\'image',
