@@ -70,7 +70,7 @@ exports.getAllListings = async (req, res) => {
         const listings = await Listing.find(query)
             .populate({
                 path: 'apartmentId',
-                select: 'type surface rooms bathrooms price features',
+                select: 'type surface rooms bathrooms price features images',
                 populate: {
                     path: 'buildingId',
                     select: 'name address'
@@ -251,7 +251,14 @@ exports.getListingsByUserId = async (req, res) => {
     try {
         const userId = req.params.userId;
         const listings = await Listing.find({ publisher: userId })
-            .populate('apartmentId')
+            .populate({
+                path: 'apartmentId',
+                select: 'type surface rooms bathrooms price features images',
+                populate: {
+                    path: 'buildingId',
+                    select: 'name address'
+                }
+            })
             .sort({ createdAt: -1 });
 
         res.status(200).json({
