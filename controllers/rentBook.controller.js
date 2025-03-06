@@ -102,7 +102,13 @@ exports.getAllRentBooks = async (req, res) => {
         const rentBooks = await RentBook.find(filter)
             .skip(skip)
             .limit(limit)
-            .populate('apartmentId', 'number floor')
+            .populate({
+                path: 'apartmentId',
+                populate: {
+                    path: 'buildingId',
+                    select: 'name address'
+                }
+            })
             .populate('tenantId', 'firstName lastName phone email')
             .populate('ownerId', 'firstName lastName phone email');
 
@@ -144,7 +150,13 @@ exports.getOwnerRentBooks = async (req, res) => {
         const rentBooks = await RentBook.find(filter)
             .skip(skip)
             .limit(limit)
-            .populate('apartmentId', 'number floor')
+            .populate({
+                path: 'apartmentId',
+                populate: {
+                    path: 'buildingId',
+                    select: 'name address'
+                }
+            })
             .populate('tenantId', 'firstName lastName phone email')
             .populate('ownerId', 'firstName lastName phone email');
 
@@ -185,7 +197,13 @@ exports.getTenantRentBooks = async (req, res) => {
         const rentBooks = await RentBook.find(filter)
             .skip(skip)
             .limit(limit)
-            .populate('apartmentId', 'number floor')
+            .populate({
+                path: 'apartmentId',
+                populate: {
+                    path: 'buildingId',
+                    select: 'name address'
+                }
+            })
             .populate('tenantId', 'firstName lastName phone email')
             .populate('ownerId', 'firstName lastName phone email');
 
@@ -213,7 +231,13 @@ exports.getTenantRentBooks = async (req, res) => {
 exports.getRentBookById = async (req, res) => {
     try {
         const rentBook = await RentBook.findById(req.params.id)
-            .populate('apartmentId')
+            .populate({
+                path: 'apartmentId',
+                populate: {
+                    path: 'buildingId',
+                    select: 'name address'
+                }
+            })
             .populate('tenantId', 'firstName lastName phone email')
             .populate('ownerId', 'firstName lastName phone email');
 
