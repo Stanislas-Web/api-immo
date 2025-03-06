@@ -235,6 +235,7 @@ router.get('/:id', auth(['proprietaire', 'locataire', 'admin'], { requireVerific
  *   post:
  *     tags: [RentBooks]
  *     summary: Permettre à tout utilisateur de faire un paiement pour un carnet de loyer
+ *     description: Cette route permet à n'importe quel utilisateur authentifié de faire un paiement pour un carnet de loyer spécifique.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -256,26 +257,205 @@ router.get('/:id', auth(['proprietaire', 'locataire', 'admin'], { requireVerific
  *               amount:
  *                 type: number
  *                 description: Montant du paiement
+ *                 example: 500
  *               paymentMethod:
  *                 type: string
  *                 enum: [espèces, virement, chèque, mobile_money]
  *                 default: espèces
  *                 description: Méthode de paiement
+ *                 example: mobile_money
  *               reference:
  *                 type: string
  *                 description: Référence du paiement
+ *                 example: "REF-123456"
  *               comment:
  *                 type: string
  *                 description: Commentaire sur le paiement
+ *                 example: "Paiement du loyer de mars 2025"
  *     responses:
  *       200:
  *         description: Paiement ajouté avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Paiement ajouté avec succès"
+ *                 data:
+ *                   $ref: '#/components/schemas/RentBook'
  *       401:
  *         description: Non autorisé
  *       404:
  *         description: Carnet de loyer non trouvé
  */
 router.post('/:id/payment', auth(['proprietaire', 'locataire', 'admin', 'agent', 'utilisateur'], { requireVerification: false }), rentBookController.addPayment);
+
+/**
+ * @swagger
+ * /api/v1/rentbooks/{id}/payment-history:
+ *   get:
+ *     tags: [RentBooks]
+ *     summary: Obtenir l'historique des paiements d'un carnet de loyer
+ *     description: Cette route permet de récupérer l'historique complet des paiements pour un carnet de loyer spécifique, avec un résumé des paiements.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID du carnet de loyer
+ *     responses:
+ *       200:
+ *         description: Historique des paiements récupéré avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Historique des paiements récupéré avec succès"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     paymentHistory:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           date:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2025-03-01T10:00:00.000Z"
+ *                           amount:
+ *                             type: number
+ *                             example: 500
+ *                           paymentMethod:
+ *                             type: string
+ *                             example: "mobile_money"
+ *                           status:
+ *                             type: string
+ *                             example: "payé"
+ *                           reference:
+ *                             type: string
+ *                             example: "REF-123456"
+ *                           comment:
+ *                             type: string
+ *                             example: "Paiement du loyer de mars 2025"
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         totalPaid:
+ *                           type: number
+ *                           example: 1500
+ *                         monthlyRent:
+ *                           type: number
+ *                           example: 500
+ *                         numberOfPayments:
+ *                           type: integer
+ *                           example: 3
+ *                         lastPaymentDate:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2025-03-01T10:00:00.000Z"
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: Carnet de loyer non trouvé
+ */
+router.get('/:id/payment-history', auth(['proprietaire', 'locataire', 'admin', 'agent', 'utilisateur'], { requireVerification: false }), rentBookController.getPaymentHistory);
+
+/**
+ * @swagger
+ * /api/v1/rentbooks/{id}/public-payment:
+ *   post:
+ *     tags: [RentBooks]
+ *     summary: Permettre à tout le monde de faire un paiement pour une location spécifique (accès public)
+ *     description: Cette route permet à n'importe qui, même sans authentification, de faire un paiement pour un carnet de loyer spécifique.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID du carnet de loyer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Montant du paiement
+ *                 example: 500
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [espèces, virement, chèque, mobile_money]
+ *                 default: espèces
+ *                 description: Méthode de paiement
+ *                 example: mobile_money
+ *               reference:
+ *                 type: string
+ *                 description: Référence du paiement
+ *                 example: "REF-123456"
+ *               comment:
+ *                 type: string
+ *                 description: Commentaire sur le paiement
+ *                 example: "Paiement du loyer de mars 2025"
+ *     responses:
+ *       200:
+ *         description: Paiement ajouté avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Paiement ajouté avec succès"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     rentBookId:
+ *                       type: string
+ *                       example: "67c8f8ac04744d2e7ccf2c3a"
+ *                     paymentDate:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-03-06T10:45:30.000Z"
+ *                     amount:
+ *                       type: number
+ *                       example: 500
+ *                     paymentMethod:
+ *                       type: string
+ *                       example: "mobile_money"
+ *                     status:
+ *                       type: string
+ *                       example: "payé"
+ *                     reference:
+ *                       type: string
+ *                       example: "REF-123456"
+ *       404:
+ *         description: Carnet de loyer non trouvé
+ */
+router.post('/:id/public-payment', rentBookController.publicPayment);
 
 /**
  * @swagger

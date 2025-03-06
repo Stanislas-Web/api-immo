@@ -414,3 +414,101 @@ exports.deleteRentBook = async (req, res) => {
         });
     }
 };
+
+// Obtenir l'historique des paiements d'un carnet de loyer
+exports.getPaymentHistory = async (req, res) => {
+    try {
+        const rentBook = await RentBook.findById(req.params.id);
+
+        if (!rentBook) {
+            return res.status(404).json({
+                success: false,
+                message: 'Carnet de loyer non trouvé'
+            });
+        }
+
+        // Récupérer l'historique des paiements
+        const paymentHistory = rentBook.paymentHistory;
+
+        // Calculer le total des paiements
+        const totalPaid = paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
+        
+        // Calculer le montant restant à payer (si applicable)
+        const monthlyRent = rentBook.monthlyRent;
+        
+        // Informations supplémentaires
+        const summary = {
+            totalPaid,
+            monthlyRent,
+            numberOfPayments: paymentHistory.length,
+            lastPaymentDate: paymentHistory.length > 0 ? paymentHistory[paymentHistory.length - 1].date : null
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Historique des paiements récupéré avec succès',
+            data: {
+                paymentHistory,
+                summary
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération de l\'historique des paiements',
+            error: error.message
+        });
+    }
+};
+
+// Permettre à tout le monde de faire un paiement pour une location spécifique (accès public)
+exports.publicPayment = async (req, res) => {
+    try {
+        const { amount, paymentMethod, reference, comment } = req.body;
+        const rentBook = await RentBook.findById(req.params.id);
+
+        if (!rentBook) {
+            return res.status(404).json({
+                success: false,
+                message: 'Carnet de loyer non trouvé'
+            });
+        }
+
+        // Déterminer le statut du paiement
+        let status = 'payé';
+        if (amount < rentBook.monthlyRent) {
+            status = 'partiel';
+        }
+
+        // Ajouter le paiement
+        rentBook.paymentHistory.push({
+            date: new Date(),
+            amount,
+            paymentMethod,
+            status,
+            reference,
+            comment
+        });
+
+        await rentBook.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Paiement ajouté avec succès',
+            data: {
+                rentBookId: rentBook._id,
+                paymentDate: new Date(),
+                amount,
+                paymentMethod,
+                status,
+                reference
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de l\'ajout du paiement',
+            error: error.message
+        });
+    }
+};
