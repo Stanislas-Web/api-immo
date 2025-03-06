@@ -72,6 +72,18 @@ const upload = require('../middleware/upload');
  *               features:
  *                 type: object
  *                 properties:
+ *                   water:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Eau courante
+ *                   electricity:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Électricité
+ *                   gas:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Gaz
  *                   furnished:
  *                     type: boolean
  *                     default: false
@@ -96,11 +108,29 @@ const upload = require('../middleware/upload');
  *                     type: boolean
  *                     default: false
  *                     description: Système de sécurité
+ *                   elevator:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Ascenseur
+ *                   garden:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Jardin
+ *                   terrace:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Terrasse
+ *                   fitted_kitchen:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Cuisine équipée
+ *                   pool:
+ *                     type: boolean
+ *                     default: false
+ *                     description: Piscine
  *               status:
  *                 type: string
  *                 enum: [disponible, loué, en_rénovation, réservé]
- *                 default: disponible
- *                 description: État actuel de l'appartement
  *     responses:
  *       201:
  *         description: Appartement créé avec succès
@@ -276,18 +306,48 @@ router.get('/:id', auth(['proprietaire', 'admin', 'locataire', 'agent'], { requi
  *               features:
  *                 type: object
  *                 properties:
+ *                   water:
+ *                     type: boolean
+ *                     description: Eau courante
+ *                   electricity:
+ *                     type: boolean
+ *                     description: Électricité
+ *                   gas:
+ *                     type: boolean
+ *                     description: Gaz
  *                   furnished:
  *                     type: boolean
+ *                     description: Appartement meublé
  *                   airConditioning:
  *                     type: boolean
+ *                     description: Climatisation
  *                   balcony:
  *                     type: boolean
+ *                     description: Balcon
  *                   internet:
  *                     type: boolean
+ *                     description: Internet
  *                   parking:
  *                     type: boolean
+ *                     description: Parking
  *                   securitySystem:
  *                     type: boolean
+ *                     description: Système de sécurité
+ *                   elevator:
+ *                     type: boolean
+ *                     description: Ascenseur
+ *                   garden:
+ *                     type: boolean
+ *                     description: Jardin
+ *                   terrace:
+ *                     type: boolean
+ *                     description: Terrasse
+ *                   fitted_kitchen:
+ *                     type: boolean
+ *                     description: Cuisine équipée
+ *                   pool:
+ *                     type: boolean
+ *                     description: Piscine
  *               status:
  *                 type: string
  *                 enum: [disponible, loué, en_rénovation, réservé]

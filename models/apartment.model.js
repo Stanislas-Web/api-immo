@@ -60,6 +60,18 @@ const mongoose = require('mongoose');
  *         features:
  *           type: object
  *           properties:
+ *             water:
+ *               type: boolean
+ *               default: false
+ *               description: Eau courante
+ *             electricity:
+ *               type: boolean
+ *               default: false
+ *               description: Électricité
+ *             gas:
+ *               type: boolean
+ *               default: false
+ *               description: Gaz
  *             furnished:
  *               type: boolean
  *               default: false
@@ -84,6 +96,26 @@ const mongoose = require('mongoose');
  *               type: boolean
  *               default: false
  *               description: Système de sécurité
+ *             elevator:
+ *               type: boolean
+ *               default: false
+ *               description: Ascenseur
+ *             garden:
+ *               type: boolean
+ *               default: false
+ *               description: Jardin
+ *             terrace:
+ *               type: boolean
+ *               default: false
+ *               description: Terrasse
+ *             fitted_kitchen:
+ *               type: boolean
+ *               default: false
+ *               description: Cuisine équipée
+ *             pool:
+ *               type: boolean
+ *               default: false
+ *               description: Piscine
  *         images:
  *           type: array
  *           items:
@@ -127,12 +159,20 @@ const mongoose = require('mongoose');
  *           paymentFrequency: mensuel
  *         description: "Bel appartement F3 avec vue sur le jardin"
  *         features:
+ *           water: true
+ *           electricity: true
+ *           gas: false
  *           furnished: true
  *           airConditioning: true
  *           balcony: true
  *           internet: true
  *           parking: true
  *           securitySystem: true
+ *           elevator: false
+ *           garden: true
+ *           terrace: false
+ *           fitted_kitchen: true
+ *           pool: false
  *         images:
  *           - "https://example.com/image1.jpg"
  *           - "https://example.com/image2.jpg"
