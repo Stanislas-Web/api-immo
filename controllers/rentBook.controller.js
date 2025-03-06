@@ -9,7 +9,7 @@ exports.createRentBook = async (req, res) => {
         const { apartmentId, tenantId, leaseStartDate, leaseEndDate, monthlyRent, securityDeposit } = req.body;
 
         // Vérifier si l'appartement existe
-        const apartment = await Apartment.findById(apartmentId);
+        const apartment = await Apartment.findById(apartmentId).populate('buildingId');
         if (!apartment) {
             return res.status(404).json({
                 success: false,
@@ -17,8 +17,8 @@ exports.createRentBook = async (req, res) => {
             });
         }
 
-        // Vérifier si l'utilisateur est le propriétaire de l'appartement
-        if (apartment.owner.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+        // Vérifier si l'utilisateur est le propriétaire de l'appartement (via le bâtiment)
+        if (!apartment.buildingId || apartment.buildingId.owner.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 message: 'Non autorisé à créer un carnet de loyer pour cet appartement'
