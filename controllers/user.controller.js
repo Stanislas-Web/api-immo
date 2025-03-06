@@ -58,13 +58,16 @@ exports.searchUsers = async (req, res) => {
         let filter = { role };
         
         if (query) {
+            // Échapper les caractères spéciaux dans la requête pour éviter les erreurs d'expression régulière
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
             filter = {
                 ...filter,
                 $or: [
-                    { firstName: { $regex: query, $options: 'i' } },
-                    { lastName: { $regex: query, $options: 'i' } },
-                    { phone: { $regex: query, $options: 'i' } },
-                    { email: { $regex: query, $options: 'i' } }
+                    { firstName: { $regex: escapedQuery, $options: 'i' } },
+                    { lastName: { $regex: escapedQuery, $options: 'i' } },
+                    { phone: { $regex: escapedQuery, $options: 'i' } },
+                    { email: { $regex: escapedQuery, $options: 'i' } }
                 ]
             };
         }

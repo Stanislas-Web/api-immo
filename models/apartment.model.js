@@ -168,12 +168,20 @@ const apartmentSchema = new Schema({
   features: {
     type: Object,
     properties: {
+      water: { type: Boolean, default: false },
+      electricity: { type: Boolean, default: false },
+      gas: { type: Boolean, default: false },
       furnished: { type: Boolean, default: false },
       airConditioning: { type: Boolean, default: false },
       balcony: { type: Boolean, default: false },
       internet: { type: Boolean, default: false },
       parking: { type: Boolean, default: false },
-      securitySystem: { type: Boolean, default: false }
+      securitySystem: { type: Boolean, default: false },
+      elevator: { type: Boolean, default: false },
+      garden: { type: Boolean, default: false },
+      terrace: { type: Boolean, default: false },
+      fitted_kitchen: { type: Boolean, default: false },
+      pool: { type: Boolean, default: false }
     }
   },
   images: [{ type: String }],
