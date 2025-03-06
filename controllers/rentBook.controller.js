@@ -286,14 +286,6 @@ exports.addPayment = async (req, res) => {
             });
         }
 
-        // Vérifier les autorisations (seul le propriétaire ou l'admin peut ajouter un paiement)
-        if (rentBook.ownerId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Non autorisé à modifier ce carnet de loyer'
-            });
-        }
-
         // Déterminer le statut du paiement
         let status = 'payé';
         if (amount < rentBook.monthlyRent) {

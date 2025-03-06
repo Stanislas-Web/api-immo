@@ -234,7 +234,7 @@ router.get('/:id', auth(['proprietaire', 'locataire', 'admin'], { requireVerific
  * /api/v1/rentbooks/{id}/payment:
  *   post:
  *     tags: [RentBooks]
- *     summary: Ajouter un paiement à un carnet de loyer
+ *     summary: Permettre à tout utilisateur de faire un paiement pour un carnet de loyer
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -272,12 +272,10 @@ router.get('/:id', auth(['proprietaire', 'locataire', 'admin'], { requireVerific
  *         description: Paiement ajouté avec succès
  *       401:
  *         description: Non autorisé
- *       403:
- *         description: Accès interdit
  *       404:
  *         description: Carnet de loyer non trouvé
  */
-router.post('/:id/payment', auth(['proprietaire', 'admin'], { requireVerification: false }), rentBookController.addPayment);
+router.post('/:id/payment', auth(['proprietaire', 'locataire', 'admin', 'agent', 'utilisateur'], { requireVerification: false }), rentBookController.addPayment);
 
 /**
  * @swagger
