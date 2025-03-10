@@ -150,7 +150,7 @@ router.delete('/:id', auth(['proprietaire', 'admin'], { requireVerification: fal
  *       200:
  *         description: Images ajoutées avec succès
  */
-router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification: false }), upload.array('images'), maintenanceController.addImages);
+router.post('/:id/images', auth(['proprietaire', 'admin', 'locataire'], { requireVerification: false }), upload.array('images'), maintenanceController.addImages);
 
 /**
  * @swagger

@@ -203,9 +203,7 @@ exports.deleteMaintenance = async (req, res) => {
 
 exports.addImages = async (req, res) => {
     try {
-        const maintenance = await Maintenance.findById(req.params.id)
-            .populate('apartmentId');
-
+        const maintenance = await Maintenance.findById(req.params.id);
         if (!maintenance) {
             return res.status(404).json({
                 success: false,
@@ -213,36 +211,112 @@ exports.addImages = async (req, res) => {
             });
         }
 
-        // Vérifier les autorisations
-        const building = await Building.findById(maintenance.apartmentId.buildingId);
-        if (building.owner.toString() !== req.user._id.toString()) {
-            return res.status(403).json({
+        // Charger l'appartement avec ses relations
+        const apartment = await Apartment.findById(maintenance.apartmentId)
+            .populate('currentTenant', '_id');
+
+        if (!apartment) {
+            return res.status(404).json({
                 success: false,
-                message: 'Non autorisé à ajouter des images à cette maintenance'
+                message: 'Appartement non trouvé'
             });
         }
 
-        if (!req.files || !Array.isArray(req.files)) {
+        // Vérifier les autorisations
+        if (req.user.role === 'locataire') {
+            // Vérifier si le locataire est bien le locataire actuel de l'appartement
+            console.log('User ID:', req.user._id);
+            console.log('Current Tenant:', apartment.currentTenant);
+            
+            // Vérifier si currentTenant est défini
+            if (!apartment.currentTenant) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Erreur - Impossible de vérifier le locataire actuel'
+                });
+            }
+
+            // Convertir les IDs en string pour la comparaison
+            const userId = req.user._id.toString();
+            const tenantId = apartment.currentTenant._id.toString();
+            console.log('User ID (string):', userId);
+            console.log('Tenant ID (string):', tenantId);
+
+            if (tenantId !== userId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Non autorisé - Vous devez être le locataire actuel de cet appartement'
+                });
+            }
+        } else if (req.user.role === 'proprietaire') {
+            // Vérifier si le propriétaire est bien le propriétaire de l'immeuble
+            const building = await Building.findById(apartment.buildingId);
+            if (building.owner.toString() !== req.user._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Non autorisé - Vous devez être le propriétaire de cet immeuble'
+                });
+            }
+        }
+
+        // Vérifier si des fichiers ont été envoyés
+        if (!req.files || req.files.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Aucune image fournie'
+                message: 'Aucune image fournie. Assurez-vous d\'envoyer les images avec le champ "images" dans un formulaire multipart/form-data'
             });
         }
 
-        const uploadPromises = req.files.map(file => {
+        // Upload des images sur Cloudinary
+        const uploadPromises = [];
+        
+        // Fonction pour uploader un buffer vers Cloudinary
+        const uploadToCloudinary = (buffer, options) => {
             return new Promise((resolve, reject) => {
-                cloudinary.uploader.upload(file.path, {
-                    folder: 'maintenance_images',
-                    resource_type: 'auto'
-                }, (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result.secure_url);
-                });
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    options,
+                    (error, result) => {
+                        if (error) return reject(error);
+                        resolve(result);
+                    }
+                );
+                
+                // Convertir le buffer en stream et l'envoyer à Cloudinary
+                const Readable = require('stream').Readable;
+                const readableStream = new Readable();
+                readableStream.push(buffer);
+                readableStream.push(null);
+                readableStream.pipe(uploadStream);
             });
-        });
+        };
+        
+        // Uploader chaque image
+        for (const file of req.files) {
+            const options = {
+                folder: 'api-immo/maintenances',
+                resource_type: 'auto',
+                transformation: [
+                    { width: 1200, crop: 'limit' },
+                    { quality: 'auto' },
+                    { fetch_format: 'auto' }
+                ]
+            };
+            
+            uploadPromises.push(uploadToCloudinary(file.buffer, options));
+        }
 
-        const uploadedUrls = await Promise.all(uploadPromises);
-        maintenance.images = [...maintenance.images, ...uploadedUrls];
+        const uploadResults = await Promise.all(uploadPromises);
+        console.log('Images uploadées sur Cloudinary:', uploadResults);
+        
+        // Ajouter les URLs Cloudinary à la maintenance
+        const cloudinaryUrls = uploadResults.map(result => result.secure_url);
+        
+        // S'assurer que maintenance.images est un tableau
+        if (!maintenance.images) {
+            maintenance.images = [];
+        }
+        
+        maintenance.images = maintenance.images.concat(cloudinaryUrls);
         await maintenance.save();
 
         res.status(200).json({
