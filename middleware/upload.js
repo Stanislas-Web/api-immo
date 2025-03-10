@@ -25,7 +25,4 @@ const upload = multer({
     limits: limits
 });
 
-module.exports = {
-    apartment: upload,
-    building: upload
-};
+module.exports = upload;

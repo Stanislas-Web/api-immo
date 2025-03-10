@@ -78,7 +78,7 @@ const limiter = rateLimit({
 app.use('/api/v1', limiter);
 
 // Documentation Swagger
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: "API Immobilière - Documentation"
@@ -93,13 +93,14 @@ app.use('/api/v1/transactions', require('./routes/transaction.routes'));
 app.use('/api/v1/messages', require('./routes/message.routes'));
 app.use('/api/v1/rentbooks', require('./routes/rentBook.routes'));
 app.use('/api/v1/users', require('./routes/user.routes'));
+app.use('/api/v1/maintenances', require('./routes/maintenance.routes'));
 
 // Route par défaut
 app.get('/', (req, res) => {
     res.json({
         message: 'Bienvenue sur l\'API de gestion immobilière',
         version: 'v1',
-        documentation: '/api-docs'
+        documentation: '/api/v1/docs'
     });
 });
 

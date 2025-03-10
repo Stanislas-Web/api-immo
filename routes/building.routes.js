@@ -273,7 +273,7 @@ router.post('/:id/documents', auth(['proprietaire', 'admin'], { requireVerificat
  *       401:
  *         description: Non autorisé
  */
-router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification: false }), upload.building.array('images', 10), buildingController.addBuildingImages);
+router.post('/:id/images', auth(['proprietaire', 'admin'], { requireVerification: false }), upload.array('images', 10), buildingController.addBuildingImages);
 
 /**
  * @swagger
