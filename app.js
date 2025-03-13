@@ -94,6 +94,7 @@ app.use('/api/v1/messages', require('./routes/message.routes'));
 app.use('/api/v1/rentbooks', require('./routes/rentBook.routes'));
 app.use('/api/v1/users', require('./routes/user.routes'));
 app.use('/api/v1/maintenances', require('./routes/maintenance.routes'));
+app.use('/api/v1/utility-bills', require('./routes/utility-bill.routes'));
 
 // Route par défaut
 app.get('/', (req, res) => {
