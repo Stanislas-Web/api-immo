@@ -262,3 +262,119 @@ exports.deleteUtilityBill = async (req, res) => {
     });
   }
 };
+
+/**
+ * Récupérer toutes les factures d'utilité pour un appartement spécifique
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ */
+exports.getUtilityBillsByApartment = async (req, res) => {
+  try {
+    const { apartmentId } = req.params;
+
+    // Vérifier si l'appartement existe
+    const apartment = await Apartment.findById(apartmentId);
+    if (!apartment) {
+      return res.status(404).json({ message: "Appartement non trouvé" });
+    }
+
+    // Rechercher toutes les factures qui contiennent cet appartement dans leurs distributionDetails
+    const utilityBills = await UtilityBill.find({
+      'distributionDetails.apartmentId': apartmentId
+    }).populate('buildingId', 'name address');
+
+    // Si aucune facture n'est trouvée
+    if (utilityBills.length === 0) {
+      return res.status(200).json({ 
+        message: "Aucune facture d'utilité trouvée pour cet appartement",
+        utilityBills: []
+      });
+    }
+
+    // Formater les résultats pour n'inclure que les détails pertinents pour cet appartement
+    const formattedBills = utilityBills.map(bill => {
+      // Trouver les détails spécifiques à cet appartement
+      const apartmentDetails = bill.distributionDetails.find(
+        detail => detail.apartmentId.toString() === apartmentId
+      );
+
+      return {
+        billId: bill._id,
+        buildingName: bill.buildingId ? bill.buildingId.name : 'Non spécifié',
+        buildingAddress: bill.buildingId ? bill.buildingId.address : 'Non spécifié',
+        type: bill.type,
+        totalAmount: bill.amount,
+        apartmentAmount: apartmentDetails ? apartmentDetails.amount : 0,
+        isPaid: apartmentDetails ? apartmentDetails.isPaid : false,
+        billingDate: bill.billingDate,
+        dueDate: bill.dueDate
+      };
+    });
+
+    res.status(200).json({
+      message: "Factures d'utilité récupérées avec succès",
+      count: utilityBills.length,
+      utilityBills: formattedBills
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la récupération des factures d'utilité",
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Marquer une facture d'utilité comme payée pour un appartement spécifique
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ */
+exports.markUtilityBillAsPaidForApartment = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { billId, apartmentId } = req.params;
+
+    // Vérifier si la facture existe
+    const utilityBill = await UtilityBill.findById(billId);
+    if (!utilityBill) {
+      return res.status(404).json({ message: "Facture non trouvée" });
+    }
+
+    // Vérifier si l'appartement fait partie de la distribution
+    const apartmentDetailIndex = utilityBill.distributionDetails.findIndex(
+      detail => detail.apartmentId.toString() === apartmentId
+    );
+
+    if (apartmentDetailIndex === -1) {
+      return res.status(404).json({ message: "Cet appartement n'est pas concerné par cette facture" });
+    }
+
+    // Marquer comme payé pour cet appartement
+    utilityBill.distributionDetails[apartmentDetailIndex].isPaid = true;
+
+    // Vérifier si tous les appartements ont payé
+    const allPaid = utilityBill.distributionDetails.every(detail => detail.isPaid);
+    if (allPaid) {
+      utilityBill.isPaid = true;
+    }
+
+    await utilityBill.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      message: "Facture marquée comme payée pour cet appartement",
+      isPaid: utilityBill.distributionDetails[apartmentDetailIndex].isPaid,
+      billFullyPaid: utilityBill.isPaid
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({
+      message: "Erreur lors du marquage de la facture comme payée",
+      error: error.message
+    });
+  }
+};
