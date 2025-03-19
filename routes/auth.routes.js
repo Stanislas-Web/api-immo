@@ -224,4 +224,21 @@ router.post('/forgot-password', authController.forgotPassword);
  */
 router.post('/reset-password/:token', authController.resetPassword);
 
+/**
+ * @swagger
+ * /api/v1/auth/verify-token:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Vérification de la validité du token
+ *     description: Vérifie si le token JWT est valide et non expiré
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token valide
+ *       401:
+ *         description: Token invalide ou expiré
+ */
+router.get('/verify-token', authController.verifyToken);
+
 module.exports = router;

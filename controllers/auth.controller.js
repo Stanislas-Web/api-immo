@@ -392,3 +392,59 @@ exports.resetPassword = async (req, res) => {
         });
     }
 };
+
+/**
+ * @swagger
+ * /api/v1/auth/verify-token:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Vérification de la validité du token
+ *     description: Vérifie si le token JWT est valide et non expiré
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token valide
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 valid:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         description: Token invalide ou expiré
+ */
+exports.verifyToken = async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                valid: false,
+                message: 'Token non fourni'
+            });
+        }
+
+        const token = authHeader.split(' ')[1];
+        jwt.verify(token, JWT_SECRET, (err, decoded) => {
+            if (err) {
+                return res.status(401).json({
+                    valid: false,
+                    message: 'Token invalide ou expiré'
+                });
+            }
+
+            res.status(200).json({
+                valid: true,
+                userId: decoded.userId,
+                role: decoded.role
+            });
+        });
+    } catch (error) {
+        res.status(500).json({
+            valid: false,
+            message: 'Erreur lors de la vérification du token'
+        });
+    }
+};
