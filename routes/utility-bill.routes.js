@@ -174,7 +174,7 @@ router.get('/:id', auth(['proprietaire', 'admin', 'locataire']), utilityBillCont
  *       500:
  *         description: Erreur serveur
  */
-router.patch('/:id/mark-paid', auth(['proprietaire', 'admin']), utilityBillController.markUtilityBillAsPaid);
+router.patch('/:id/mark-paid', auth(['proprietaire', 'admin', 'locataire']), utilityBillController.markUtilityBillAsPaid);
 
 /**
  * @swagger
