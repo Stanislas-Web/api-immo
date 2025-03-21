@@ -382,3 +382,54 @@ exports.deleteImage = async (req, res) => {
         });
     }
 };
+
+exports.getMaintenancesByApartment = async (req, res) => {
+    try {
+        const { apartmentId } = req.params;
+
+        // Vérifier si l'appartement existe
+        const apartment = await Apartment.findById(apartmentId);
+        if (!apartment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appartement non trouvé'
+            });
+        }
+
+        // Vérifier les autorisations
+        if (req.user.role === 'locataire') {
+            // Vérifier si le locataire est bien le locataire actuel de l'appartement
+            if (apartment.currentTenant.toString() !== req.user._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Non autorisé - Vous devez être le locataire actuel de cet appartement'
+                });
+            }
+        } else if (req.user.role === 'proprietaire') {
+            // Vérifier si le propriétaire est bien le propriétaire de l'immeuble
+            const building = await Building.findById(apartment.buildingId);
+            if (building.owner.toString() !== req.user._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Non autorisé - Vous devez être le propriétaire de cet immeuble'
+                });
+            }
+        }
+
+        // Récupérer toutes les maintenances de l'appartement
+        const maintenances = await Maintenance.find({ apartmentId })
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: maintenances.length,
+            data: maintenances
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des maintenances',
+            error: error.message
+        });
+    }
+};

@@ -77,6 +77,47 @@ router.get('/:id', auth(['proprietaire', 'admin', 'locataire'], { requireVerific
 
 /**
  * @swagger
+ * /api/v1/maintenances/apartment/{apartmentId}:
+ *   get:
+ *     tags: [Maintenances]
+ *     summary: Récupérer toutes les maintenances d'un appartement
+ *     security:
+ *       - bearerAuth: []
+ *     description: Récupère la liste de toutes les maintenances associées à un appartement spécifique
+ *     parameters:
+ *       - in: path
+ *         name: apartmentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'appartement
+ *     responses:
+ *       200:
+ *         description: Liste des maintenances récupérée avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   description: Nombre de maintenances trouvées
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Maintenance'
+ *       403:
+ *         description: Non autorisé - Accès restreint au propriétaire de l'immeuble ou au locataire actuel
+ *       404:
+ *         description: Appartement non trouvé
+ */
+router.get('/apartment/:apartmentId', auth(['proprietaire', 'admin', 'locataire'], { requireVerification: false }), maintenanceController.getMaintenancesByApartment);
+
+/**
+ * @swagger
  * /api/v1/maintenances/{id}:
  *   put:
  *     summary: Mettre à jour une maintenance
