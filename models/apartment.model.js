@@ -54,6 +54,9 @@ const mongoose = require('mongoose');
  *               enum: [day, mensuel, trimestriel, semestriel, annuel]
  *               default: mensuel
  *               description: Fréquence de paiement
+ *         taxe:
+ *           type: boolean
+ *           description: Indique si l'appartement est soumis à une taxe
  *         description:
  *           type: string
  *           description: Description de l'appartement
@@ -204,6 +207,7 @@ const apartmentSchema = new Schema({
       }
     }
   },
+  taxe: { type: Boolean, default: false },
   description: { type: String },
   features: {
     type: Object,

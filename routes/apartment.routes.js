@@ -53,6 +53,7 @@ const upload = require('../middleware/upload');
  *                 description: Nombre de salles de bain
  *               price:
  *                 type: object
+ *                 required: true
  *                 properties:
  *                   amount:
  *                     type: number
@@ -66,6 +67,10 @@ const upload = require('../middleware/upload');
  *                     enum: [day, mensuel, trimestriel, semestriel, annuel]
  *                     default: mensuel
  *                     description: Fréquence de paiement
+ *               taxe:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Indique si l'appartement est soumis à une taxe
  *               description:
  *                 type: string
  *                 description: Description de l'appartement
