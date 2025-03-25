@@ -22,6 +22,19 @@ exports.createListing = async (req, res) => {
             });
         }
 
+        // Vérifier si une annonce active existe déjà pour cet appartement
+        const existingListing = await Listing.findOne({ 
+            apartmentId: req.body.apartmentId,
+            status: { $in: ['active', 'pending'] }
+        });
+
+        if (existingListing) {
+            return res.status(400).json({
+                success: false,
+                message: 'Une annonce existe déjà pour cet appartement. Veuillez la désactiver avant d\'en créer une nouvelle.'
+            });
+        }
+
         const listing = new Listing({
             ...req.body,
             price: typeof req.body.price === 'number' ? { amount: req.body.price } : req.body.price,
