@@ -444,9 +444,16 @@ exports.getMaintenancesByOwner = async (req, res) => {
         const apartments = await Apartment.find({ buildingId: { $in: buildingIds } });
         const apartmentIds = apartments.map(apartment => apartment._id);
 
-        // Récupérer toutes les maintenances pour ces appartements
+        // Récupérer toutes les maintenances pour ces appartements avec les informations des appartements et des immeubles
         const maintenances = await Maintenance.find({ apartmentId: { $in: apartmentIds } })
-            .populate('apartmentId', 'name number')
+            .populate({
+                path: 'apartmentId',
+                select: 'name number floor type',
+                populate: {
+                    path: 'buildingId',
+                    select: 'name address city postalCode'
+                }
+            })
             .sort({ date: -1 });
 
         res.status(200).json({
