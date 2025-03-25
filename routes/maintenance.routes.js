@@ -6,6 +6,35 @@ const maintenanceController = require('../controllers/maintenance.controller');
 
 /**
  * @swagger
+ * /api/v1/maintenances/owner:
+ *   get:
+ *     summary: Récupérer toutes les maintenances des appartements d'un propriétaire
+ *     tags: [Maintenances]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des maintenances récupérée avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Maintenance'
+ *       500:
+ *         description: Erreur serveur
+ */
+router.get('/owner', auth(['proprietaire']), maintenanceController.getMaintenancesByOwner);
+
+/**
+ * @swagger
  * /api/v1/maintenances:
  *   post:
  *     summary: Créer une nouvelle maintenance

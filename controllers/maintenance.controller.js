@@ -433,3 +433,32 @@ exports.getMaintenancesByApartment = async (req, res) => {
         });
     }
 };
+
+exports.getMaintenancesByOwner = async (req, res) => {
+    try {
+        // Récupérer tous les immeubles du propriétaire
+        const buildings = await Building.find({ owner: req.user._id });
+        const buildingIds = buildings.map(building => building._id);
+
+        // Récupérer tous les appartements dans ces immeubles
+        const apartments = await Apartment.find({ buildingId: { $in: buildingIds } });
+        const apartmentIds = apartments.map(apartment => apartment._id);
+
+        // Récupérer toutes les maintenances pour ces appartements
+        const maintenances = await Maintenance.find({ apartmentId: { $in: apartmentIds } })
+            .populate('apartmentId', 'name number')
+            .sort({ date: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: maintenances.length,
+            data: maintenances
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des maintenances',
+            error: error.message
+        });
+    }
+};
