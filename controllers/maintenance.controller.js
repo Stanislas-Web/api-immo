@@ -456,10 +456,20 @@ exports.getMaintenancesByOwner = async (req, res) => {
             })
             .sort({ date: -1 });
 
+        // Ajouter les informations de contact du propriétaire à la réponse
+        const maintenancesWithContact = maintenances.map(maintenance => ({
+            ...maintenance.toObject(),
+            contactInfo: {
+                name: req.user.firstName + ' ' + req.user.lastName,
+                email: req.user.email,
+                phone: req.user.phone
+            }
+        }));
+
         res.status(200).json({
             success: true,
             count: maintenances.length,
-            data: maintenances
+            data: maintenancesWithContact
         });
     } catch (error) {
         res.status(500).json({
