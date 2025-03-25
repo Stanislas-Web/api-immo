@@ -186,7 +186,7 @@ exports.deleteMaintenance = async (req, res) => {
             await cloudinary.uploader.destroy(publicId);
         }
 
-        await maintenance.remove();
+        await maintenance.deleteOne();
 
         res.status(200).json({
             success: true,
