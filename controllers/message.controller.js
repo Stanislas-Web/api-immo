@@ -35,9 +35,46 @@ exports.createConversation = async (req, res) => {
             const existingConversation = await Conversation.findOne({
                 type: 'direct',
                 participants: { $all: participants }
-            });
+            }).populate('participants', 'firstName lastName email phone');
 
             if (existingConversation) {
+                // Envoyer le message WhatsApp aux participants
+                for (const participant of existingConversation.participants) {
+                    if (participant.phone && participant._id.toString() !== req.user._id.toString()) {
+                        try {
+                            console.log('Sending WhatsApp message to:', participant.phone);
+                            
+                            const data = {
+                                messaging_product: "whatsapp",
+                                to: participant.phone,
+                                type: "template",
+                                template: {
+                                    name: "message_annonce",
+                                    language: {
+                                        code: "fr"
+                                    }
+                                }
+                            };
+
+                            const config = {
+                                method: 'post',
+                                maxBodyLength: Infinity,
+                                url: 'https://graph.facebook.com/v16.0/230630080143527/messages',
+                                headers: { 
+                                    'Content-Type': 'application/json', 
+                                    'Authorization': 'Bearer EAALOqv96b5kBOyZBK9MAZCF7Ev63btHib6DKyOTudKXvNYFkZBDdYZA6LDE6nssXrTZCEkdLP3hZBRLky3LS4SC5ZByFOtTzXNBVac4SKZCQPIug7YksXgiyeDZAqvGkcusMzz1cDjPPKXNkoVvQ8wrEZA4veGrRIyStcKg7a0MxBD1TE1DRCW76VLJikBEb9DLa8RQYhhKtkn4GWdduA8'
+                                },
+                                data: data
+                            };
+
+                            const response = await axios.request(config);
+                            console.log('WhatsApp API Response:', JSON.stringify(response.data, null, 2));
+                        } catch (whatsappError) {
+                            console.error('Error sending WhatsApp message:', whatsappError.response?.data || whatsappError.message);
+                        }
+                    }
+                }
+
                 return res.status(200).json({
                     success: true,
                     data: existingConversation
@@ -52,12 +89,53 @@ exports.createConversation = async (req, res) => {
         });
 
         await conversation.save();
+        
+        // Populate the participants after saving
+        await conversation.populate('participants', 'firstName lastName email phone');
+
+        // Envoyer le message WhatsApp aux nouveaux participants
+        for (const participant of conversation.participants) {
+            if (participant.phone && participant._id.toString() !== req.user._id.toString()) {
+                try {
+                    console.log('Sending WhatsApp message to:', participant.phone);
+                    
+                    const data = {
+                        messaging_product: "whatsapp",
+                        to: participant.phone,
+                        type: "template",
+                        template: {
+                            name: "message_annonce",
+                            language: {
+                                code: "fr"
+                            }
+                        }
+                    };
+
+                    const config = {
+                        method: 'post',
+                        maxBodyLength: Infinity,
+                        url: 'https://graph.facebook.com/v16.0/230630080143527/messages',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Authorization': 'Bearer EAALOqv96b5kBOyZBK9MAZCF7Ev63btHib6DKyOTudKXvNYFkZBDdYZA6LDE6nssXrTZCEkdLP3hZBRLky3LS4SC5ZByFOtTzXNBVac4SKZCQPIug7YksXgiyeDZAqvGkcusMzz1cDjPPKXNkoVvQ8wrEZA4veGrRIyStcKg7a0MxBD1TE1DRCW76VLJikBEb9DLa8RQYhhKtkn4GWdduA8'
+                        },
+                        data: data
+                    };
+
+                    const response = await axios.request(config);
+                    console.log('WhatsApp API Response:', JSON.stringify(response.data, null, 2));
+                } catch (whatsappError) {
+                    console.error('Error sending WhatsApp message:', whatsappError.response?.data || whatsappError.message);
+                }
+            }
+        }
 
         res.status(201).json({
             success: true,
             data: conversation
         });
     } catch (error) {
+        console.error('Error in createConversation:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la création de la conversation',
@@ -71,45 +149,8 @@ exports.getConversations = async (req, res) => {
         const conversations = await Conversation.find({
             participants: req.user._id
         })
-            .populate('participants', 'firstName lastName email profilePicture phoneNumber')
+            .populate('participants', 'firstName lastName email phone')
             .sort({ 'lastMessage.timestamp': -1 });
-
-        // Send WhatsApp template message to each participant
-        for (const conversation of conversations) {
-            for (const participant of conversation.participants) {
-                if (participant.phoneNumber && participant._id.toString() !== req.user._id.toString()) {
-                    try {
-                        const data = {
-                            messaging_product: "whatsapp",
-                            to: participant.phoneNumber,
-                            type: "template",
-                            template: {
-                                name: "message_annonce",
-                                language: {
-                                    code: "fr"
-                                }
-                            }
-                        };
-
-                        const config = {
-                            method: 'post',
-                            maxBodyLength: Infinity,
-                            url: 'https://graph.facebook.com/v16.0/230630080143527/messages',
-                            headers: { 
-                                'Content-Type': 'application/json', 
-                                'Authorization': 'Bearer EAALOqv96b5kBOyZBK9MAZCF7Ev63btHib6DKyOTudKXvNYFkZBDdYZA6LDE6nssXrTZCEkdLP3hZBRLky3LS4SC5ZByFOtTzXNBVac4SKZCQPIug7YksXgiyeDZAqvGkcusMzz1cDjPPKXNkoVvQ8wrEZA4veGrRIyStcKg7a0MxBD1TE1DRCW76VLJikBEb9DLa8RQYhhKtkn4GWdduA8'
-                            },
-                            data: data
-                        };
-
-                        const response = await axios.request(config);
-                        console.log('WhatsApp message sent:', JSON.stringify(response.data));
-                    } catch (whatsappError) {
-                        console.error('Error sending WhatsApp message:', whatsappError);
-                    }
-                }
-            }
-        }
 
         res.status(200).json({
             success: true,
@@ -127,7 +168,7 @@ exports.getConversations = async (req, res) => {
 exports.getConversationById = async (req, res) => {
     try {
         const conversation = await Conversation.findById(req.params.id)
-            .populate('participants', 'firstName lastName email profilePicture');
+            .populate('participants', 'firstName lastName email phone');
 
         if (!conversation) {
             return res.status(404).json({
@@ -257,7 +298,7 @@ exports.getMessages = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const messages = await Message.find({ conversation: req.params.id })
-            .populate('sender', 'firstName lastName email profilePicture')
+            .populate('sender', 'firstName lastName email phone')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -298,8 +339,8 @@ exports.getMessages = async (req, res) => {
 exports.getMessageById = async (req, res) => {
     try {
         const message = await Message.findById(req.params.id)
-            .populate('sender', 'firstName lastName email profilePicture')
-            .populate('receiver', 'firstName lastName email profilePicture');
+            .populate('sender', 'firstName lastName email phone')
+            .populate('receiver', 'firstName lastName email phone');
 
         if (!message) {
             return res.status(404).json({
