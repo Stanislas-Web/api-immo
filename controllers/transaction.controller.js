@@ -1,6 +1,7 @@
 const Transaction = require('../models/transaction.model');
 const Apartment = require('../models/apartment.model');
 const User = require('../models/user.model');
+const { generateReceiptNumber } = require('../utils/receiptGenerator');
 
 exports.createTransaction = async (req, res) => {
     try {
@@ -22,10 +23,17 @@ exports.createTransaction = async (req, res) => {
             });
         }
 
+        // Générer un numéro de reçu unique
+        const receiptNumber = generateReceiptNumber();
+        
         const transaction = new Transaction({
             ...req.body,
             tenant: req.user._id,
-            landlord: apartment.buildingId.owner
+            landlord: apartment.buildingId.owner,
+            metadata: {
+                ...req.body.metadata,
+                receiptNumber: receiptNumber
+            }
         });
 
         await transaction.save();

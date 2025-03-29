@@ -75,7 +75,7 @@ const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100 // limite chaque IP à 100 requêtes par windowMs
 });
-app.use('/api/v1', limiter);
+app.use('/api', limiter); // Changed from '/api/v1' to '/api' to catch all API routes
 
 // Documentation Swagger
 app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -96,6 +96,9 @@ app.use('/api/v1/users', require('./routes/user.routes'));
 app.use('/api/v1/maintenances', require('./routes/maintenance.routes'));
 app.use('/api/v1/utility-bills', require('./routes/utility-bill.routes'));
 app.use('/api/v1/taxes', require('./routes/tax.routes'));
+app.use('/api/v1/payments', require('./routes/payment.routes'));
+
+// Toutes les routes utilisent le préfixe /api/v1 pour maintenir la cohérence
 
 // Route par défaut
 app.get('/', (req, res) => {

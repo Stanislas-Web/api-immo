@@ -51,14 +51,26 @@ const { Schema } = mongoose;
  *           properties:
  *             type:
  *               type: string
- *               enum: [mobile_money, carte_bancaire, especes, virement]
- *               description: Méthode de paiement utilisée
+ *               enum: [mobile_money, bank_transfer, cash, other]
+ *               description: Méthode de paiement
  *             provider:
  *               type: string
- *               description: Fournisseur de la méthode de paiement
+ *               enum: [flexpay, other]
+ *               description: Fournisseur de service de paiement
  *             reference:
  *               type: string
- *               description: Numéro de référence de la transaction
+ *               description: Référence de la transaction
+ *             status:
+ *               type: string
+ *               enum: [pending, completed, failed]
+ *               default: 'pending'
+ *               description: Statut de la transaction
+ *             phone:
+ *               type: string
+ *               description: Numéro de téléphone pour le paiement mobile
+ *             providerResponse:
+ *               type: Object
+ *               description: Réponse brute du fournisseur de paiement
  *         status:
  *           type: string
  *           enum: [en_attente, complete, echoue, rembourse]
@@ -123,8 +135,11 @@ const { Schema } = mongoose;
  *           currency: CDF
  *         paymentMethod:
  *           type: mobile_money
- *           provider: "Orange Money"
+ *           provider: "flexpay"
  *           reference: "OM123456789"
+ *           status: "pending"
+ *           phone: "+243123456789"
+ *           providerResponse: {}
  *         status: "en_attente"
  *         dueDate: "2025-02-05"
  *         period:
@@ -169,11 +184,24 @@ const transactionSchema = new Schema({
   paymentMethod: {
     type: {
       type: String,
-      enum: ['mobile_money', 'carte_bancaire', 'especes', 'virement'],
+      enum: ['mobile_money', 'bank_transfer', 'cash', 'other'],
       required: true
     },
-    provider: String,
-    reference: String
+    provider: {
+      type: String,
+      enum: ['flexpay', 'other']
+    },
+    reference: { 
+      type: String,
+      maxlength: [50, "La référence de transaction ne peut pas dépasser 50 caractères"]
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'completed', 'failed'],
+      default: 'pending'
+    },
+    phone: String,
+    providerResponse: Object
   },
   status: {
     type: String,
@@ -214,7 +242,8 @@ const transactionSchema = new Schema({
 transactionSchema.index({ apartmentId: 1, tenant: 1 });
 transactionSchema.index({ status: 1 });
 transactionSchema.index({ dueDate: 1 });
-transactionSchema.index({ 'metadata.receiptNumber': 1 }, { unique: true });
+// Index unique sur receiptNumber mais seulement pour les valeurs non-null
+transactionSchema.index({ 'metadata.receiptNumber': 1 }, { unique: true, sparse: true });
 transactionSchema.index({ createdAt: -1 });
 
 // Index pour les requêtes courantes

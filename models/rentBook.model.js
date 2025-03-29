@@ -126,10 +126,12 @@ const rentBookSchema = new Schema({
         },
         status: {
             type: String,
-            enum: ['payé', 'partiel', 'retard', 'impayé'],
-            default: 'payé'
+            enum: ['payé', 'partiel', 'retard', 'impayé','pending'],
+            default: 'pending'
         },
-        reference: String,
+        reference: {
+            type: String,
+        },
         comment: String
     }],
     status: {

@@ -298,7 +298,7 @@ exports.addPayment = async (req, res) => {
             amount,
             paymentMethod,
             status,
-            reference,
+            reference: reference ? reference.toString().substring(0, 49) : '',
             comment
         });
 
@@ -486,7 +486,7 @@ exports.publicPayment = async (req, res) => {
             amount,
             paymentMethod,
             status,
-            reference,
+            reference: reference ? reference.toString().substring(0, 49) : '',
             comment
         });
 
@@ -501,7 +501,7 @@ exports.publicPayment = async (req, res) => {
                 amount,
                 paymentMethod,
                 status,
-                reference
+                reference: reference ? reference.toString().substring(0, 49) : ''
             }
         });
     } catch (error) {
