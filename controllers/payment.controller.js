@@ -248,6 +248,43 @@ const getUserTransactions = async (req, res) => {
     // Calculer le nombre total pour la pagination
     const total = await Transaction.countDocuments(filter);
 
+    // Calculer les sommes des loyers par devise
+    const aggregationResult = await Transaction.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: {
+            currency: '$amount.currency',
+            type: '$type'
+          },
+          total: { $sum: '$amount.value' }
+        }
+      }
+    ]);
+
+    // Initialiser les sommes à 0
+    let sommeLoyerUSD = 0;
+    let sommeLoyerCDF = 0;
+    let sommeFactureUSD = 0;
+    let sommeFactureCDF = 0;
+
+    // Assigner les sommes selon la devise et le type
+    aggregationResult.forEach(result => {
+      if (result._id.currency === 'USD') {
+        if (result._id.type === 'loyer') {
+          sommeLoyerUSD = result.total;
+        } else if (result._id.type === 'facture') {
+          sommeFactureUSD = result.total;
+        }
+      } else if (result._id.currency === 'CDF') {
+        if (result._id.type === 'loyer') {
+          sommeLoyerCDF = result.total;
+        } else if (result._id.type === 'facture') {
+          sommeFactureCDF = result.total;
+        }
+      }
+    });
+
     // Récupérer les transactions avec pagination
     const transactions = await Transaction.find(filter)
       .sort({ paymentDate: -1 }) // Tri par date décroissante
@@ -262,6 +299,10 @@ const getUserTransactions = async (req, res) => {
       message: 'Transactions récupérées avec succès',
       data: {
         transactions,
+        sommeLoyerUSD,
+        sommeLoyerCDF,
+        sommeFactureUSD,
+        sommeFactureCDF,
         pagination: {
           total,
           page: parseInt(page),

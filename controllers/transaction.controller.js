@@ -3,6 +3,64 @@ const Apartment = require('../models/apartment.model');
 const User = require('../models/user.model');
 const { generateReceiptNumber } = require('../utils/receiptGenerator');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     TransactionResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         message:
+ *           type: string
+ *         data:
+ *           type: object
+ *           properties:
+ *             transactions:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Transaction'
+ *             sommeLoyerUSD:
+ *               type: number
+ *               description: Somme totale des loyers en USD
+ *             sommeLoyerCDF:
+ *               type: number
+ *               description: Somme totale des loyers en CDF
+ *             sommeFactureUSD:
+ *               type: number
+ *               description: Somme totale des factures en USD
+ *             sommeFactureCDF:
+ *               type: number
+ *               description: Somme totale des factures en CDF
+ *             sommesComplete:
+ *               type: object
+ *               properties:
+ *                 sommeLoyerUSD:
+ *                   type: number
+ *                   description: Somme totale des loyers en USD pour les transactions complétées
+ *                 sommeLoyerCDF:
+ *                   type: number
+ *                   description: Somme totale des loyers en CDF pour les transactions complétées
+ *                 sommeFactureUSD:
+ *                   type: number
+ *                   description: Somme totale des factures en USD pour les transactions complétées
+ *                 sommeFactureCDF:
+ *                   type: number
+ *                   description: Somme totale des factures en CDF pour les transactions complétées
+ *             pagination:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: number
+ *                 page:
+ *                   type: number
+ *                 pages:
+ *                   type: number
+ *                 limit:
+ *                   type: number
+ */
+
 exports.createTransaction = async (req, res) => {
     try {
         const apartment = await Apartment.findById(req.body.apartmentId)
@@ -83,6 +141,61 @@ exports.getTransactions = async (req, res) => {
         const total = await Transaction.countDocuments(query);
         const pages = Math.ceil(total / limit);
 
+        // Calculer les sommes des loyers et factures par devise
+        const aggregationResult = await Transaction.aggregate([
+            { $match: query },
+            {
+                $group: {
+                    _id: {
+                        currency: '$amount.currency',
+                        type: '$type',
+                        status: '$status'
+                    },
+                    total: { $sum: '$amount.value' }
+                }
+            }
+        ]);
+
+        // Initialiser les sommes à 0
+        let sommeLoyerUSD = 0;
+        let sommeLoyerCDF = 0;
+        let sommeFactureUSD = 0;
+        let sommeFactureCDF = 0;
+        let sommeLoyerUSDComplete = 0;
+        let sommeLoyerCDFComplete = 0;
+        let sommeFactureUSDComplete = 0;
+        let sommeFactureCDFComplete = 0;
+
+        // Assigner les sommes selon la devise et le type
+        aggregationResult.forEach(result => {
+            const isComplete = result._id.status === 'complete';
+            if (result._id.currency === 'USD') {
+                if (result._id.type === 'loyer') {
+                    sommeLoyerUSD += result.total;
+                    if (isComplete) {
+                        sommeLoyerUSDComplete += result.total;
+                    }
+                } else if (result._id.type === 'facture') {
+                    sommeFactureUSD += result.total;
+                    if (isComplete) {
+                        sommeFactureUSDComplete += result.total;
+                    }
+                }
+            } else if (result._id.currency === 'CDF') {
+                if (result._id.type === 'loyer') {
+                    sommeLoyerCDF += result.total;
+                    if (isComplete) {
+                        sommeLoyerCDFComplete += result.total;
+                    }
+                } else if (result._id.type === 'facture') {
+                    sommeFactureCDF += result.total;
+                    if (isComplete) {
+                        sommeFactureCDFComplete += result.total;
+                    }
+                }
+            }
+        });
+
         // Get transactions with pagination
         const transactions = await Transaction.find(query)
             .populate('tenant', 'firstName lastName email')
@@ -94,14 +207,25 @@ exports.getTransactions = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            data: transactions,
-            pagination: {
-                total,
-                page,
-                pages
-            }
+            count: transactions.length,
+            total,
+            pages,
+            currentPage: page,
+            sommeLoyerUSD,
+            sommeLoyerCDF,
+            sommeFactureUSD,
+            sommeFactureCDF,
+            sommesComplete: {
+                sommeLoyerUSD: sommeLoyerUSDComplete,
+                sommeLoyerCDF: sommeLoyerCDFComplete,
+                sommeFactureUSD: sommeFactureUSDComplete,
+                sommeFactureCDF: sommeFactureCDFComplete
+            },
+            data: transactions
         });
+
     } catch (error) {
+        console.error('Erreur lors de la récupération des transactions:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération des transactions',
@@ -112,51 +236,108 @@ exports.getTransactions = async (req, res) => {
 
 exports.getAllTransactions = async (req, res) => {
     try {
-        const query = {};
-
-        // Filtres selon le rôle de l'utilisateur
-        if (req.user.role === 'locataire') {
-            query.tenant = req.user._id;
-        } else if (req.user.role === 'proprietaire') {
-            query.landlord = req.user._id;
-        }
-
-        if (req.query.status) query.status = req.query.status;
-        if (req.query.type) query.type = req.query.type;
-        if (req.query.startDate) {
-            query.createdAt = { $gte: new Date(req.query.startDate) };
-        }
-        if (req.query.endDate) {
-            query.createdAt = {
-                ...query.createdAt,
-                $lte: new Date(req.query.endDate)
-            };
-        }
-
-        // Pagination
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 10;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
+        const query = {};
+        if (req.query.status) {
+            query.status = req.query.status;
+        }
+
+        if (req.query.type) {
+            query.type = req.query.type;
+        }
+
+        // Get total count for pagination
+        const total = await Transaction.countDocuments(query);
+        const pages = Math.ceil(total / limit);
+
+        // Calculer les sommes des loyers et factures par devise
+        const aggregationResult = await Transaction.aggregate([
+            { $match: query },
+            {
+                $group: {
+                    _id: {
+                        currency: '$amount.currency',
+                        type: '$type',
+                        status: '$status'
+                    },
+                    total: { $sum: '$amount.value' }
+                }
+            }
+        ]);
+
+        // Initialiser les sommes à 0
+        let sommeLoyerUSD = 0;
+        let sommeLoyerCDF = 0;
+        let sommeFactureUSD = 0;
+        let sommeFactureCDF = 0;
+        let sommeLoyerUSDComplete = 0;
+        let sommeLoyerCDFComplete = 0;
+        let sommeFactureUSDComplete = 0;
+        let sommeFactureCDFComplete = 0;
+
+        // Assigner les sommes selon la devise et le type
+        aggregationResult.forEach(result => {
+            const isComplete = result._id.status === 'complete';
+            if (result._id.currency === 'USD') {
+                if (result._id.type === 'loyer') {
+                    sommeLoyerUSD += result.total;
+                    if (isComplete) {
+                        sommeLoyerUSDComplete += result.total;
+                    }
+                } else if (result._id.type === 'facture') {
+                    sommeFactureUSD += result.total;
+                    if (isComplete) {
+                        sommeFactureUSDComplete += result.total;
+                    }
+                }
+            } else if (result._id.currency === 'CDF') {
+                if (result._id.type === 'loyer') {
+                    sommeLoyerCDF += result.total;
+                    if (isComplete) {
+                        sommeLoyerCDFComplete += result.total;
+                    }
+                } else if (result._id.type === 'facture') {
+                    sommeFactureCDF += result.total;
+                    if (isComplete) {
+                        sommeFactureCDFComplete += result.total;
+                    }
+                }
+            }
+        });
+
+        // Get transactions with pagination
         const transactions = await Transaction.find(query)
-            .populate('apartmentId', 'number type')
             .populate('tenant', 'firstName lastName email phone')
             .populate('landlord', 'firstName lastName email phone')
+            .populate('apartmentId', 'number type')
+            .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit)
-            .sort({ createdAt: -1 });
-
-        const total = await Transaction.countDocuments(query);
+            .limit(limit);
 
         res.status(200).json({
             success: true,
             count: transactions.length,
             total,
-            pages: Math.ceil(total / limit),
+            pages,
             currentPage: page,
+            sommeLoyerUSD,
+            sommeLoyerCDF,
+            sommeFactureUSD,
+            sommeFactureCDF,
+            sommesComplete: {
+                sommeLoyerUSD: sommeLoyerUSDComplete,
+                sommeLoyerCDF: sommeLoyerCDFComplete,
+                sommeFactureUSD: sommeFactureUSDComplete,
+                sommeFactureCDF: sommeFactureCDFComplete
+            },
             data: transactions
         });
+
     } catch (error) {
+        console.error('Erreur lors de la récupération des transactions:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération des transactions',

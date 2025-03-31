@@ -63,7 +63,7 @@ router.post('/', auth(['proprietaire', 'admin', 'agent']), transactionController
  *     summary: Liste toutes les transactions
  *     security:
  *       - bearerAuth: []
- *     description: Récupère la liste de toutes les transactions avec pagination et filtres
+ *     description: Récupère la liste de toutes les transactions avec pagination, filtres et sommes totales
  *     parameters:
  *       - in: query
  *         name: page
@@ -85,7 +85,11 @@ router.post('/', auth(['proprietaire', 'admin', 'agent']), transactionController
  *         description: Filtrer par statut
  *     responses:
  *       200:
- *         description: Liste des transactions
+ *         description: Liste des transactions avec sommes totales
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TransactionResponse'
  *       401:
  *         description: Non autorisé
  */
