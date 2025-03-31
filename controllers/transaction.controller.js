@@ -2,6 +2,7 @@ const Transaction = require('../models/transaction.model');
 const Apartment = require('../models/apartment.model');
 const User = require('../models/user.model');
 const { generateReceiptNumber } = require('../utils/receiptGenerator');
+const axios = require('axios');
 
 /**
  * @swagger
@@ -60,6 +61,50 @@ const { generateReceiptNumber } = require('../utils/receiptGenerator');
  *                 limit:
  *                   type: number
  */
+
+// Fonction utilitaire pour vérifier le statut
+const verifyPaymentStatus = async (orderNumber) => {
+    try {
+        const response = await axios.get(`https://backend.flexpay.cd/api/rest/v1/check/${orderNumber}`, {
+            headers: {
+                'Authorization': `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJcL2xvZ2luIiwicm9sZXMiOlsiTUVSQ0hBTlQiXSwiZXhwIjoxODA1OTg0NzU1LCJzdWIiOiIwMWRmMTkxNTdiNzA3NTY2NWY0YmJhNTBlYmU3NTMyZiJ9.z3d6avQpsKbAMAdvnUAeNsjgqnr_K4-O05CkeFqVXng`
+            }
+        });
+
+        if (response.data.code === '0') {
+            const transaction = await Transaction.findOne({
+                'paymentMethod.providerResponse.orderNumber': orderNumber
+            });
+
+            if (transaction) {
+                transaction.status = 'complete';
+                transaction.paymentMethod.status = 'completed';
+                transaction.paymentMethod.providerResponse = response.data;
+
+                await transaction.save();
+
+                // Mettre à jour l'appartement si c'est un paiement de loyer
+                if (transaction.type === 'loyer') {
+                    const apartment = await Apartment.findById(transaction.apartmentId);
+                    if (apartment) {
+                        apartment.lastPaymentDate = new Date();
+                        apartment.nextPaymentDate = new Date(apartment.lastPaymentDate);
+                        apartment.nextPaymentDate.setMonth(apartment.nextPaymentDate.getMonth() + 1);
+                        await apartment.save();
+                    }
+                }
+
+                // Envoyer une notification au propriétaire
+                const landlord = await User.findById(transaction.landlord);
+                if (landlord.whatsappNumber) {
+                    // Implémenter l'envoi de notification WhatsApp
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Erreur lors de la vérification automatique:', error);
+    }
+};
 
 exports.createTransaction = async (req, res) => {
     try {
@@ -631,6 +676,130 @@ exports.getTransactionStats = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération des statistiques',
+            error: error.message
+        });
+    }
+};
+
+exports.checkTransaction = async (req, res) => {
+    try {
+        const { orderNumber } = req.params;
+        console.log('Recherche de transaction avec orderNumber:', orderNumber);
+        
+        // Chercher la transaction avec l'orderNumber dans providerResponse
+        const transaction = await Transaction.findOne({
+            'paymentMethod.providerResponse.orderNumber': orderNumber
+        });
+
+        if (!transaction) {
+            return res.status(404).json({
+                success: false,
+                message: 'Transaction non trouvée'
+            });
+        }
+
+        console.log('Transaction trouvée:', JSON.stringify(transaction, null, 2));
+
+        // Vérifier si la transaction est déjà complétée
+        if (transaction.status === 'complete') {
+            return res.status(200).json({
+                success: true,
+                message: 'La transaction a déjà été traitée avec succès',
+                data: transaction
+            });
+        }
+
+        // Faire la requête à l'API FlexPay pour vérifier le statut
+        console.log('Vérification avec FlexPay API pour orderNumber:', orderNumber);
+        const response = await axios.get(`https://backend.flexpay.cd/api/rest/v1/check/${orderNumber}`, {
+            headers: {
+                'Authorization': `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJcL2xvZ2luIiwicm9sZXMiOlsiTUVSQ0hBTlQiXSwiZXhwIjoxODA1OTg0NzU1LCJzdWIiOiIwMWRmMTkxNTdiNzA3NTY2NWY0YmJhNTBlYmU3NTMyZiJ9.z3d6avQpsKbAMAdvnUAeNsjgqnr_K4-O05CkeFqVXng`
+            }
+        });
+
+        const flexPayResponse = response.data;
+        console.log('Réponse FlexPay:', JSON.stringify(flexPayResponse, null, 2));
+
+        // Si le paiement est réussi (code = 0)
+        if (flexPayResponse.code === '0') {
+            // Mettre à jour la transaction
+            transaction.status = 'complete';
+            transaction.paymentMethod.status = 'completed';
+            transaction.paymentMethod.providerResponse = flexPayResponse;
+
+            await transaction.save();
+
+            // Mettre à jour le statut du paiement de l'appartement
+            if (transaction.type === 'loyer') {
+                const apartment = await Apartment.findById(transaction.apartmentId);
+                if (apartment) {
+                    apartment.lastPaymentDate = new Date();
+                    apartment.nextPaymentDate = new Date(apartment.lastPaymentDate);
+                    apartment.nextPaymentDate.setMonth(apartment.nextPaymentDate.getMonth() + 1);
+                    await apartment.save();
+                }
+            }
+
+            // Envoyer une notification au propriétaire
+            const landlord = await User.findById(transaction.landlord);
+            if (landlord.whatsappNumber) {
+                // Implémenter l'envoi de notification WhatsApp
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Transaction complétée avec succès',
+                data: transaction
+            });
+        }
+
+        // Si le paiement n'est pas réussi
+        return res.status(200).json({
+            success: false,
+            message: 'La transaction est en attente ou a échoué',
+            data: {
+                status: flexPayResponse.code,
+                message: flexPayResponse.message
+            }
+        });
+
+    } catch (error) {
+        console.error('Erreur lors de la vérification de la transaction:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la vérification de la transaction',
+            error: error.message
+        });
+    }
+};
+
+exports.initiatePayment = async (req, res) => {
+    try {
+        // ... votre code d'initialisation existant ...
+
+        // Après avoir obtenu la réponse de FlexPay et créé la transaction
+        const orderNumber = flexPayResponse.orderNumber; // ou là où vous stockez l'orderNumber
+
+        // Planifier la vérification après 5 minutes
+        setTimeout(() => {
+            verifyPaymentStatus(orderNumber);
+        }, 5 * 60 * 1000); // 5 minutes en millisecondes
+
+        // Retourner la réponse normale
+        return res.status(200).json({
+            success: true,
+            message: 'Paiement initié avec succès',
+            data: {
+                orderNumber,
+                // ... autres données ...
+            }
+        });
+
+    } catch (error) {
+        console.error('Erreur lors de l\'initialisation du paiement:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Erreur lors de l\'initialisation du paiement',
             error: error.message
         });
     }

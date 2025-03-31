@@ -297,4 +297,27 @@ router.patch('/:id/reject', auth(['proprietaire', 'agent']), transactionControll
  */
 router.get('/stats', auth(['proprietaire', 'admin']), transactionController.getTransactionStats);
 
+/**
+ * @swagger
+ * /api/v1/transactions/check/{orderNumber}:
+ *   get:
+ *     tags: [Transactions]
+ *     summary: Vérifier le statut d'une transaction FlexPay
+ *     parameters:
+ *       - in: path
+ *         name: orderNumber
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Numéro de commande FlexPay
+ *     responses:
+ *       200:
+ *         description: Statut de la transaction récupéré avec succès
+ *       404:
+ *         description: Transaction non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
+router.get('/check/:orderNumber', transactionController.checkTransaction);
+
 module.exports = router;

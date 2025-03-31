@@ -10,6 +10,50 @@ const FLEXPAY_CONFIG = {
   token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJcL2xvZ2luIiwicm9sZXMiOlsiTUVSQ0hBTlQiXSwiZXhwIjoxODA1OTg0NzU1LCJzdWIiOiIwMWRmMTkxNTdiNzA3NTY2NWY0YmJhNTBlYmU3NTMyZiJ9.z3d6avQpsKbAMAdvnUAeNsjgqnr_K4-O05CkeFqVXng'
 };
 
+// Fonction utilitaire pour vérifier le statut
+const verifyPaymentStatus = async (orderNumber, transactionId) => {
+  try {
+      console.log(`Vérification automatique du paiement pour orderNumber: ${orderNumber}`);
+      const response = await axios.get(`${FLEXPAY_CONFIG.baseURL}/check/${orderNumber}`, {
+          headers: {
+              'Authorization': `Bearer ${FLEXPAY_CONFIG.token}`
+          }
+      });
+
+      if (response.data.code === '0') {
+          const transaction = await Transaction.findById(transactionId);
+          if (!transaction) {
+              console.error('Transaction non trouvée:', transactionId);
+              return;
+          }
+
+          console.log('Transaction trouvée, mise à jour du statut...');
+          transaction.status = 'complete';
+          transaction.paymentMethod.status = 'completed';
+          transaction.paymentMethod.providerResponse = response.data;
+
+          await transaction.save();
+          console.log('Transaction mise à jour avec succès');
+
+          // Mettre à jour le carnet de loyer si c'est un paiement de loyer
+          if (transaction.type === 'loyer') {
+              const rentBook = await RentBook.findOne({ apartmentId: transaction.apartmentId });
+              if (rentBook) {
+                  rentBook.lastPaymentDate = new Date();
+                  rentBook.nextPaymentDate = new Date(rentBook.lastPaymentDate);
+                  rentBook.nextPaymentDate.setMonth(rentBook.nextPaymentDate.getMonth() + 1);
+                  await rentBook.save();
+                  console.log('Carnet de loyer mis à jour');
+              }
+          }
+      } else {
+          console.log(`Paiement non complété. Code: ${response.data.code}`);
+      }
+  } catch (error) {
+      console.error('Erreur lors de la vérification automatique:', error);
+  }
+};
+
 const initiatePayment = async (req, res) => {
   try {
     const { 
@@ -90,8 +134,17 @@ const initiatePayment = async (req, res) => {
       data: paymentData
     });
 
+    // Mettre à jour la transaction avec la réponse de FlexPay
+    transaction.paymentMethod.providerResponse = response.data;
+    if (response.data && response.data.orderNumber) {
+        // Planifier la vérification après 5 minutes
+        console.log(`Planification de la vérification pour orderNumber: ${response.data.orderNumber}`);
+        setTimeout(() => {
+            verifyPaymentStatus(response.data.orderNumber, transaction._id);
+        }, 5 * 60 * 1000); // 5 minutes
+    }
+
     // Assurer que la référence est toujours valide (max 50 caractères)
-    // FlexPay pourrait potentiellement renvoyer sa propre référence
     let finalReference = reference;
     if (response.data && response.data.reference) {
       finalReference = response.data.reference.toString().substring(0, 49);
@@ -99,39 +152,23 @@ const initiatePayment = async (req, res) => {
 
     // Update transaction with payment reference
     transaction.paymentMethod.reference = finalReference;
-    transaction.paymentMethod.providerResponse = response.data;
     await transaction.save();
 
-    // Add pending payment to rent book history
-    rentBook.paymentHistory.push({
-      date: paymentDate,
-      amount: amount,
-      paymentMethod: 'mobile_money',
-      transactionId: transaction._id,
-      status: 'pending',
-      reference: finalReference,
-      type
-    });
-    await rentBook.save();
-
-    res.json({
+    return res.status(200).json({
+      success: true,
       message: 'Paiement initié avec succès',
       data: {
-        transaction: transaction,
-        rentBook: {
-          id: rentBook._id,
-          apartment: rentBook.apartmentId,
-          tenant: rentBook.tenantId,
-          owner: rentBook.ownerId
-        },
-        flexPayResponse: response.data
+        orderNumber: response.data.orderNumber,
+        reference: finalReference,
+        transaction: transaction
       }
     });
 
   } catch (error) {
-    console.error('Erreur d\'initiation du paiement:', error);
-    res.status(500).json({
-      message: 'Échec de l\'initiation du paiement',
+    console.error('Erreur lors de l\'initialisation du paiement:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'initialisation du paiement',
       error: error.message
     });
   }
