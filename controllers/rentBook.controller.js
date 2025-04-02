@@ -207,6 +207,46 @@ exports.getTenantRentBooks = async (req, res) => {
             .populate('tenantId', 'firstName lastName phone email')
             .populate('ownerId', 'firstName lastName phone email');
 
+        // S'assurer que chaque RentBook a un tableau paymentHistory correctement formaté
+        let modifiedCount = 0;
+        for (const rentBook of rentBooks) {
+            let isModified = false;
+            
+            // 1. Initialiser le tableau paymentHistory s'il n'existe pas
+            if (!rentBook.paymentHistory) {
+                rentBook.paymentHistory = [];
+                isModified = true;
+                console.log(`RentBook ${rentBook._id}: paymentHistory initialisé`);
+            }
+            
+            // 2. Si le tableau est vide, ajouter un paiement initial
+            if (Array.isArray(rentBook.paymentHistory) && rentBook.paymentHistory.length === 0) {
+                // Créer un paiement initial par défaut avec la date de début du contrat
+                rentBook.paymentHistory.push({
+                    date: rentBook.startDate || new Date(),
+                    amount: rentBook.monthlyRent || 0,
+                    paymentMethod: 'espèces',
+                    status: 'payé',
+                    reference: `INIT-${rentBook._id.toString().substr(-6)}`,
+                    comment: 'Paiement initial généré automatiquement'
+                });
+                
+                isModified = true;
+                console.log(`RentBook ${rentBook._id}: ajout d'un paiement initial à l'historique vide`);
+            }
+            
+            // 3. Sauvegarder les modifications si nécessaire
+            if (isModified) {
+                rentBook.markModified('paymentHistory');
+                await rentBook.save();
+                modifiedCount++;
+            }
+        }
+        
+        if (modifiedCount > 0) {
+            console.log(`[getTenantRentBooks] ${modifiedCount} RentBooks ont été mis à jour pour corriger le tableau paymentHistory`);
+        }
+
         // Nombre total pour la pagination
         const total = await RentBook.countDocuments(filter);
 

@@ -1,0 +1,225 @@
+const Transaction = require('../models/transaction.model');
+const Apartment = require('../models/apartment.model');
+const User = require('../models/user.model');
+const RentBook = require('../models/rentBook.model'); // Corriger le casing du nom du fichier
+const { generateReceiptNumber } = require('../utils/receiptGenerator');
+const axios = require('axios');
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     TransactionResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         message:
+ *           type: string
+ *         data:
+ *           type: object
+ *           properties:
+ *             transactions:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Transaction'
+ *             sommeLoyerUSD:
+ *               type: number
+ *               description: Somme totale des loyers en USD
+ *             sommeLoyerCDF:
+ *               type: number
+ *               description: Somme totale des loyers en CDF
+ *             sommeFactureUSD:
+ *               type: number
+ *               description: Somme totale des factures en USD
+ *             sommeFactureCDF:
+ *               type: number
+ *               description: Somme totale des factures en CDF
+ *             sommesComplete:
+ *               type: object
+ *               properties:
+ *                 sommeLoyerUSD:
+ *                   type: number
+ *                   description: Somme totale des loyers en USD pour les transactions complétées
+ *                 sommeLoyerCDF:
+ *                   type: number
+ *                   description: Somme totale des loyers en CDF pour les transactions complétées
+ *                 sommeFactureUSD:
+ *                   type: number
+ *                   description: Somme totale des factures en USD pour les transactions complétées
+ *                 sommeFactureCDF:
+ *                   type: number
+ *                   description: Somme totale des factures en CDF pour les transactions complétées
+ *             pagination:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: number
+ *                 page:
+ *                   type: number
+ *                 pages:
+ *                   type: number
+ *                 limit:
+ *                   type: number
+ */
+
+// Fonction utilitaire pour vérifier le statut
+const verifyPaymentStatus = async (orderNumber) => {
+    try {
+        const response = await axios.get(`https://backend.flexpay.cd/api/rest/v1/check/${orderNumber}`, {
+            headers: {
+                'Authorization': `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJcL2xvZ2luIiwicm9sZXMiOlsiTUVSQ0hBTlQiXSwiZXhwIjoxODA1OTg0NzU1LCJzdWIiOiIwMWRmMTkxNTdiNzA3NTY2NWY0YmJhNTBlYmU3NTMyZiJ9.z3d6avQpsKbAMAdvnUAeNsjgqnr_K4-O05CkeFqVXng`
+            }
+        });
+
+        if (response.data.code === '0') {
+            const transaction = await Transaction.findOne({
+                'paymentMethod.providerResponse.orderNumber': orderNumber
+            });
+
+            if (transaction) {
+                transaction.status = 'complete';
+                transaction.paymentMethod.status = 'completed';
+                transaction.paymentMethod.providerResponse = response.data;
+
+                await transaction.save();
+
+                // Mettre à jour l'appartement si c'est un paiement de loyer
+                if (transaction.type === 'loyer') {
+                    const apartment = await Apartment.findById(transaction.apartmentId);
+                    if (apartment) {
+                        apartment.lastPaymentDate = new Date();
+                        apartment.nextPaymentDate = new Date(apartment.lastPaymentDate);
+                        apartment.nextPaymentDate.setMonth(apartment.nextPaymentDate.getMonth() + 1);
+                        await apartment.save();
+                    }
+                }
+
+                // Envoyer une notification au propriétaire
+                const landlord = await User.findById(transaction.landlord);
+                if (landlord.whatsappNumber) {
+                    // Implémenter l'envoi de notification WhatsApp
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Erreur lors de la vérification automatique:', error);
+    }
+};
+
+exports.createTransaction = async (req, res) => {
+    try {
+        const apartment = await Apartment.findById(req.body.apartmentId)
+            .populate('buildingId');
+
+        if (!apartment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appartement non trouvé'
+            });
+        }
+
+        // Vérifier si l'utilisateur est le locataire
+        if (apartment.currentTenant.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorisé à créer une transaction pour cet appartement'
+            });
+        }
+
+        // Générer un numéro de reçu unique
+        const receiptNumber = generateReceiptNumber();
+        
+        const transaction = new Transaction({
+            ...req.body,
+            tenant: req.user._id,
+            landlord: apartment.buildingId.owner,
+            metadata: {
+                ...req.body.metadata,
+                receiptNumber: receiptNumber
+            }
+        });
+
+        await transaction.save();
+        
+        // Mise à jour du RentBook associé à la transaction
+        try {
+            if (transaction.type === 'loyer') {
+                console.log('Transaction de loyer créée, recherche du RentBook associé');
+                
+                // Trouver le RentBook actif correspondant à cet appartement et tenant
+                let rentBook = await RentBook.findOne({
+                    apartmentId: transaction.apartmentId,
+                    tenantId: transaction.tenant,
+                    status: 'actif'
+                });
+                
+                if (!rentBook) {
+                    console.log('Premier essai de recherche échoué, tentative avec l\'ID de l\'appartement uniquement');
+                    
+                    // Deuxième tentative avec uniquement l'ID de l'appartement
+                    rentBook = await RentBook.findOne({
+                        apartmentId: transaction.apartmentId,
+                        status: 'actif'
+                    });
+                }
+                
+                if (rentBook) {
+                    console.log('RentBook trouvé, préparation de l\'ajout au paymentHistory');
+                    
+                    // Déterminer le statut du paiement
+                    let status = 'payé';
+                    if (transaction.amount && transaction.amount.value < rentBook.monthlyRent) {
+                        status = 'partiel';
+                    }
+                    
+                    // Créer l'objet du nouveau paiement
+                    const newPayment = {
+                        date: new Date(),
+                        amount: transaction.amount?.value || 0,
+                        paymentMethod: transaction.paymentMethod?.type || 'mobile_money',
+                        status: status,
+                        reference: receiptNumber,
+                        comment: `Paiement via ${transaction.paymentMethod?.type || 'mobile_money'} - Transaction créée #${receiptNumber}`
+                    };
+                    
+                    // S'assurer que paymentHistory existe
+                    if (!rentBook.paymentHistory) {
+                        rentBook.paymentHistory = [];
+                    }
+                    
+                    // Ajouter le paiement à l'historique
+                    rentBook.paymentHistory.push(newPayment);
+                    rentBook.markModified('paymentHistory');
+                    await rentBook.save();
+                    
+                    console.log('Paiement ajouté à l\'historique avec succès');
+                } else {
+                    console.log('Aucun RentBook trouvé pour cette transaction');
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du RentBook:', error);
+            // Ne pas faire échouer la transaction principale
+        }
+
+        // Envoyer une notification au propriétaire
+        const landlord = await User.findById(apartment.buildingId.owner);
+        if (landlord.whatsappNumber) {
+            // Implémenter l'envoi de notification WhatsApp
+        }
+
+        res.status(201).json({
+            success: true,
+            data: transaction
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la création de la transaction',
+            error: error.message
+        });
+    }
+};
+
+// ... Reste du code ...

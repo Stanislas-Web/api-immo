@@ -150,4 +150,46 @@ rentBookSchema.index({ tenantId: 1 });
 rentBookSchema.index({ ownerId: 1 });
 rentBookSchema.index({ status: 1 });
 
+// Middleware pre-save pour initialiser les champs d'historique
+rentBookSchema.pre('save', function(next) {
+    // S'assurer que paymentHistory est initialisé comme un tableau vide s'il est null ou undefined
+    if (!this.paymentHistory) {
+        this.paymentHistory = [];
+        console.log(`Middleware pre-save: paymentHistory initialisé pour RentBook ${this._id}`);
+    }
+    next();
+});
+
+// Middleware post-find pour s'assurer que tous les documents ont un paymentHistory
+rentBookSchema.post(['find', 'findOne', 'findById'], function(docs, next) {
+    // Si c'est un tableau de documents (find)
+    if (Array.isArray(docs)) {
+        docs.forEach(doc => {
+            if (doc && !doc.paymentHistory) {
+                doc.paymentHistory = [];
+                console.log(`Middleware post-find: paymentHistory initialisé pour RentBook ${doc._id}`);
+            }
+        });
+    } 
+    // Si c'est un seul document (findOne, findById)
+    else if (docs && !docs.paymentHistory) {
+        docs.paymentHistory = [];
+        console.log(`Middleware post-findOne: paymentHistory initialisé pour RentBook ${docs._id}`);
+    }
+    next();
+});
+
+// Middleware pre-findOneAndUpdate pour garantir que paymentHistory est initialisé
+rentBookSchema.pre(['findOneAndUpdate', 'updateOne', 'updateMany'], function(next) {
+    const update = this.getUpdate();
+    
+    // Si l'update tente de définir paymentHistory à null, le remplacer par un tableau vide
+    if (update && update.$set && update.$set.paymentHistory === null) {
+        update.$set.paymentHistory = [];
+        console.log('Middleware pre-update: remplacement de null par un tableau vide pour paymentHistory');
+    }
+    
+    next();
+});
+
 module.exports = mongoose.model('RentBook', rentBookSchema);

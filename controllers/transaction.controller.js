@@ -1,6 +1,7 @@
 const Transaction = require('../models/transaction.model');
 const Apartment = require('../models/apartment.model');
 const User = require('../models/user.model');
+const RentBook = require('../models/rentBook.model');
 const { generateReceiptNumber } = require('../utils/receiptGenerator');
 const axios = require('axios');
 
@@ -140,6 +141,67 @@ exports.createTransaction = async (req, res) => {
         });
 
         await transaction.save();
+
+        // Mise à jour du RentBook associé à la transaction
+        try {
+            if (transaction.type === 'loyer') {
+                console.log('Transaction de loyer créée, recherche du RentBook associé');
+                
+                // Trouver le RentBook actif correspondant à cet appartement et tenant
+                let rentBook = await RentBook.findOne({
+                    apartmentId: transaction.apartmentId,
+                    tenantId: transaction.tenant,
+                    status: 'actif'
+                });
+                
+                if (!rentBook) {
+                    console.log('Premier essai de recherche échoué, tentative avec l\'ID de l\'appartement uniquement');
+                    
+                    // Deuxième tentative avec uniquement l'ID de l'appartement
+                    rentBook = await RentBook.findOne({
+                        apartmentId: transaction.apartmentId,
+                        status: 'actif'
+                    });
+                }
+                
+                if (rentBook) {
+                    console.log('RentBook trouvé, préparation de l\'ajout au paymentHistory');
+                    
+                    // Déterminer le statut du paiement
+                    let status = 'payé';
+                    if (transaction.amount && transaction.amount.value < rentBook.monthlyRent) {
+                        status = 'partiel';
+                    }
+                    
+                    // Créer l'objet du nouveau paiement
+                    const newPayment = {
+                        date: new Date(),
+                        amount: transaction.amount?.value || 0,
+                        paymentMethod: transaction.paymentMethod?.type || 'mobile_money',
+                        status: status,
+                        reference: receiptNumber,
+                        comment: `Paiement via ${transaction.paymentMethod?.type || 'mobile_money'} - Transaction créée #${receiptNumber}`
+                    };
+                    
+                    // S'assurer que paymentHistory existe
+                    if (!rentBook.paymentHistory) {
+                        rentBook.paymentHistory = [];
+                    }
+                    
+                    // Ajouter le paiement à l'historique
+                    rentBook.paymentHistory.push(newPayment);
+                    rentBook.markModified('paymentHistory');
+                    await rentBook.save();
+                    
+                    console.log('Paiement ajouté à l\'historique avec succès');
+                } else {
+                    console.log('Aucun RentBook trouvé pour cette transaction');
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du RentBook:', error);
+            // Ne pas faire échouer la transaction principale
+        }
 
         // Envoyer une notification au propriétaire
         const landlord = await User.findById(apartment.buildingId.owner);
@@ -737,6 +799,69 @@ exports.checkTransaction = async (req, res) => {
                     apartment.nextPaymentDate = new Date(apartment.lastPaymentDate);
                     apartment.nextPaymentDate.setMonth(apartment.nextPaymentDate.getMonth() + 1);
                     await apartment.save();
+                }
+                
+                // Mettre à jour l'historique des paiements du RentBook
+                try {
+                    // Rechercher le RentBook correspondant à cette transaction
+                    let rentBook = await RentBook.findOne({
+                        apartmentId: transaction.apartmentId,
+                        tenantId: transaction.tenant,
+                        status: 'actif'
+                    });
+                    
+                    // Si pas trouvé, essayer avec seulement l'ID de l'appartement
+                    if (!rentBook) {
+                        rentBook = await RentBook.findOne({
+                            apartmentId: transaction.apartmentId,
+                            status: 'actif'
+                        });
+                    }
+                    
+                    // Si un RentBook est trouvé, mettre à jour son historique de paiements
+                    if (rentBook) {
+                        // Déterminer le statut du paiement
+                        let status = 'payé';
+                        if (transaction.amount && transaction.amount.value < rentBook.monthlyRent) {
+                            status = 'partiel';
+                        }
+                        
+                        // Créer l'objet du nouveau paiement
+                        const receiptNumber = transaction.metadata?.receiptNumber || `TRANS-${transaction._id.toString().substr(-6)}`;
+                        const newPayment = {
+                            date: new Date(),
+                            amount: transaction.amount?.value || 0,
+                            paymentMethod: transaction.paymentMethod?.type || 'mobile_money',
+                            status: status,
+                            reference: receiptNumber,
+                            comment: `Paiement via ${transaction.paymentMethod?.type || 'mobile_money'} - Transaction vérifiée #${receiptNumber}`
+                        };
+                        
+                        // S'assurer que paymentHistory existe
+                        if (!rentBook.paymentHistory) {
+                            rentBook.paymentHistory = [];
+                        }
+                        
+                        // Vérifier si un paiement avec cette référence existe déjà
+                        const paymentExists = rentBook.paymentHistory.some(
+                            payment => payment.reference === receiptNumber
+                        );
+                        
+                        // Ajouter le paiement uniquement s'il n'existe pas déjà
+                        if (!paymentExists) {
+                            rentBook.paymentHistory.push(newPayment);
+                            rentBook.markModified('paymentHistory');
+                            await rentBook.save();
+                            console.log('Carnet de loyer mis à jour');
+                        } else {
+                            console.log('Ce paiement existe déjà dans l\'historique');
+                        }
+                    } else {
+                        console.log('Aucun RentBook trouvé pour cette transaction');
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la mise à jour du RentBook:', error);
+                    // Ne pas faire échouer la transaction principale
                 }
             }
 
