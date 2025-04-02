@@ -216,24 +216,11 @@ exports.getTenantRentBooks = async (req, res) => {
             if (!rentBook.paymentHistory) {
                 rentBook.paymentHistory = [];
                 isModified = true;
-                console.log(`RentBook ${rentBook._id}: paymentHistory initialisé`);
+                console.log(`RentBook ${rentBook._id}: paymentHistory initialisé comme tableau vide`);
             }
             
-            // 2. Si le tableau est vide, ajouter un paiement initial
-            if (Array.isArray(rentBook.paymentHistory) && rentBook.paymentHistory.length === 0) {
-                // Créer un paiement initial par défaut avec la date de début du contrat
-                rentBook.paymentHistory.push({
-                    date: rentBook.startDate || new Date(),
-                    amount: rentBook.monthlyRent || 0,
-                    paymentMethod: 'espèces',
-                    status: 'payé',
-                    reference: `INIT-${rentBook._id.toString().substr(-6)}`,
-                    comment: 'Paiement initial généré automatiquement'
-                });
-                
-                isModified = true;
-                console.log(`RentBook ${rentBook._id}: ajout d'un paiement initial à l'historique vide`);
-            }
+            // NE PLUS ajouter de paiement initial automatique - laisser le tableau vide
+            // Les paiements seront uniquement ajoutés lors de vraies transactions
             
             // 3. Sauvegarder les modifications si nécessaire
             if (isModified) {
