@@ -255,4 +255,81 @@ transactionSchema.index({
   'period.to': 1 
 });
 
+// Hook qui s'exécute après la sauvegarde d'une transaction
+transactionSchema.post('save', async function(transaction) {
+  try {
+    // Ne mettre à jour l'historique que si la transaction devient "complete"
+    if (transaction.status === 'complete' && transaction.type === 'loyer') {
+      console.log(`Hook post-save: Transaction ${transaction._id} est maintenant complete, mise à jour du RentBook...`);
+      
+      // Importer les modèles nécessaires
+      const RentBook = mongoose.model('RentBook');
+      
+      // Rechercher le RentBook correspondant à cette transaction
+      let rentBook = await RentBook.findOne({
+        apartmentId: transaction.apartmentId,
+        tenantId: transaction.tenant,
+        status: 'actif'
+      });
+      
+      // Si pas trouvé, essayer avec seulement l'ID de l'appartement
+      if (!rentBook) {
+        rentBook = await RentBook.findOne({
+          apartmentId: transaction.apartmentId,
+          status: 'actif'
+        });
+      }
+      
+      // Si un RentBook est trouvé, mettre à jour son historique de paiements
+      if (rentBook) {
+        // Déterminer le statut du paiement
+        let status = 'payé';
+        const txStatus = transaction.paymentMethod?.providerResponse?.transaction?.status;
+        
+        if (txStatus === '1') {
+          status = 'impayé';
+        } else if (transaction.amount && transaction.amount.value < rentBook.monthlyRent) {
+          status = 'partiel';
+        }
+        
+        // Créer l'objet du nouveau paiement
+        const receiptNumber = transaction.metadata?.receiptNumber || `TRANS-${transaction._id.toString().substr(-6)}`;
+        const newPayment = {
+          date: new Date(),
+          amount: transaction.amount?.value || 0,
+          paymentMethod: transaction.paymentMethod?.type || 'mobile_money',
+          status: status,
+          reference: receiptNumber,
+          comment: `Paiement via ${transaction.paymentMethod?.type || 'mobile_money'} - Ajouté automatiquement #${receiptNumber}`
+        };
+        
+        // S'assurer que paymentHistory existe
+        if (!rentBook.paymentHistory) {
+          rentBook.paymentHistory = [];
+        }
+        
+        // Vérifier si un paiement avec cette référence existe déjà
+        const paymentExists = rentBook.paymentHistory.some(
+          payment => payment.reference === receiptNumber
+        );
+        
+        // Ajouter le paiement uniquement s'il n'existe pas déjà
+        if (!paymentExists) {
+          rentBook.paymentHistory.push(newPayment);
+          rentBook.markModified('paymentHistory');
+          await rentBook.save();
+          console.log(`Hook post-save: Paiement ajouté avec succès au RentBook ${rentBook._id}`);
+        } else {
+          console.log(`Hook post-save: Le paiement existe déjà dans l'historique du RentBook ${rentBook._id}`);
+        }
+      } else {
+        console.log(`Hook post-save: Aucun RentBook trouvé pour la transaction ${transaction._id}`);
+      }
+    }
+  } catch (error) {
+    console.error('Erreur dans le hook post-save de Transaction:', error);
+    // Ne pas faire échouer l'opération principale
+  }
+});
+
 module.exports = mongoose.model('Transaction', transactionSchema);

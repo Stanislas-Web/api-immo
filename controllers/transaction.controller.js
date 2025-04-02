@@ -732,6 +732,7 @@ exports.checkTransaction = async (req, res) => {
             transaction.paymentMethod.providerResponse = flexPayResponse;
 
             await transaction.save();
+            console.log('Transaction mise à jour avec succès:', transaction._id);
 
             // Mettre à jour le statut du paiement de l'appartement
             if (transaction.type === 'loyer') {
@@ -745,6 +746,8 @@ exports.checkTransaction = async (req, res) => {
                 
                 // Mettre à jour l'historique des paiements du RentBook
                 try {
+                    console.log('Recherche du RentBook pour ajouter le paiement, transaction:', transaction._id);
+                    
                     // Rechercher le RentBook correspondant à cette transaction
                     let rentBook = await RentBook.findOne({
                         apartmentId: transaction.apartmentId,
@@ -752,20 +755,32 @@ exports.checkTransaction = async (req, res) => {
                         status: 'actif'
                     });
                     
+                    console.log('Premier essai de recherche RentBook:', rentBook ? rentBook._id : 'Non trouvé');
+                    
                     // Si pas trouvé, essayer avec seulement l'ID de l'appartement
                     if (!rentBook) {
+                        console.log('Deuxième essai avec seulement apartmentId:', transaction.apartmentId);
                         rentBook = await RentBook.findOne({
                             apartmentId: transaction.apartmentId,
                             status: 'actif'
                         });
+                        console.log('Résultat deuxième essai:', rentBook ? rentBook._id : 'Non trouvé');
                     }
                     
                     // Si un RentBook est trouvé, mettre à jour son historique de paiements
                     if (rentBook) {
+                        console.log('RentBook trouvé, ajout du paiement à l\'historique:', rentBook._id);
+                        
                         // Déterminer le statut du paiement
                         let status = 'payé';
-                        if (transaction.amount && transaction.amount.value < rentBook.monthlyRent) {
+                        const txStatus = transaction.paymentMethod?.providerResponse?.transaction?.status;
+                        
+                        if (txStatus === '1') {
+                            status = 'impayé';
+                            console.log('Transaction marquée comme impayée selon le provider');
+                        } else if (transaction.amount && transaction.amount.value < rentBook.monthlyRent) {
                             status = 'partiel';
+                            console.log('Paiement partiel détecté');
                         }
                         
                         // Créer l'objet du nouveau paiement
@@ -779,9 +794,12 @@ exports.checkTransaction = async (req, res) => {
                             comment: `Paiement via ${transaction.paymentMethod?.type || 'mobile_money'} - Transaction vérifiée #${receiptNumber}`
                         };
                         
+                        console.log('Nouveau paiement à ajouter:', JSON.stringify(newPayment));
+                        
                         // S'assurer que paymentHistory existe
                         if (!rentBook.paymentHistory) {
                             rentBook.paymentHistory = [];
+                            console.log('Initialisation d\'un tableau vide pour paymentHistory');
                         }
                         
                         // Vérifier si un paiement avec cette référence existe déjà
@@ -794,12 +812,12 @@ exports.checkTransaction = async (req, res) => {
                             rentBook.paymentHistory.push(newPayment);
                             rentBook.markModified('paymentHistory');
                             await rentBook.save();
-                            console.log('Carnet de loyer mis à jour');
+                            console.log('Carnet de loyer mis à jour avec succès');
                         } else {
-                            console.log('Ce paiement existe déjà dans l\'historique');
+                            console.log('Ce paiement existe déjà dans l\'historique, référence:', receiptNumber);
                         }
                     } else {
-                        console.log('Aucun RentBook trouvé pour cette transaction');
+                        console.error('ERREUR: Aucun RentBook trouvé pour cette transaction');
                     }
                 } catch (error) {
                     console.error('Erreur lors de la mise à jour du RentBook:', error);
