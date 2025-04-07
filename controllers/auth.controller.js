@@ -200,7 +200,8 @@ exports.login = async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role,
-                isVerified: user.isVerified
+                isVerified: user.isVerified,
+                profileImage: user.profileImage || null
             }
         });
     } catch (error) {
