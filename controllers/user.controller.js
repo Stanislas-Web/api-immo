@@ -424,7 +424,6 @@ exports.getProfile = async (req, res) => {
         });
     }
 };
-
 /**
  * @swagger
  * /api/v1/users/income-summary:
