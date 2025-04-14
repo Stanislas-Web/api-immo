@@ -744,6 +744,48 @@ exports.checkTransaction = async (req, res) => {
                     await apartment.save();
                 }
                 
+                // Vérifier si c'est un paiement de facture d'utilité (via les métadonnées)
+                if (transaction.metadata && transaction.metadata.isUtilityPayment === true && transaction.metadata.utilityBillId) {
+                    try {
+                        console.log('Paiement de facture d\'utilité détecté, ID de facture:', transaction.metadata.utilityBillId);
+                        
+                        // Effectuer la requête pour marquer la facture comme payée
+                        const axios = require('axios');
+                        const utilityBillId = transaction.metadata.utilityBillId;
+                        
+                        // Obtenir un token admin ou propriétaire pour l'authentification
+                        // Dans un environnement de production, vous devriez utiliser un token de service
+                        // Pour cet exemple, nous utiliserons une approche directe
+                        const UtilityBill = require('../models/utility-bill.model');
+                        
+                        // Trouver et mettre à jour la facture directement
+                        const utilityBill = await UtilityBill.findById(utilityBillId);
+                        if (utilityBill && !utilityBill.isPaid) {
+                            utilityBill.isPaid = true;
+                            utilityBill.paidDate = new Date();
+                            
+                            // Marquer la distribution spécifique à cet appartement comme payée
+                            if (utilityBill.distributionDetails && utilityBill.distributionDetails.length > 0) {
+                                utilityBill.distributionDetails.forEach(detail => {
+                                    if (detail.apartmentId && detail.apartmentId.toString() === transaction.apartmentId.toString()) {
+                                        detail.isPaid = true;
+                                    }
+                                });
+                            }
+                            
+                            await utilityBill.save();
+                            console.log(`Facture d'utilité ${utilityBillId} marquée comme payée suite à la transaction ${transaction._id}`);
+                        } else if (utilityBill && utilityBill.isPaid) {
+                            console.log(`Facture d'utilité ${utilityBillId} déjà marquée comme payée`);
+                        } else {
+                            console.error(`Facture d'utilité ${utilityBillId} non trouvée`);
+                        }
+                    } catch (error) {
+                        console.error('Erreur lors de la mise à jour de la facture d\'utilité:', error);
+                        // Ne pas faire échouer la transaction principale
+                    }
+                }
+                
                 // Mettre à jour l'historique des paiements du RentBook
                 try {
                     console.log('Recherche du RentBook pour ajouter le paiement, transaction:', transaction._id);
@@ -822,6 +864,47 @@ exports.checkTransaction = async (req, res) => {
                 } catch (error) {
                     console.error('Erreur lors de la mise à jour du RentBook:', error);
                     // Ne pas faire échouer la transaction principale
+                }
+            }
+            // Traitement spécifique pour les factures d'utilité
+            else if (transaction.type === 'facture') {
+                console.log('Paiement de type facture détecté, ID de transaction:', transaction._id);
+                
+                // Vérifier si les métadonnées contiennent l'ID de la facture
+                if (transaction.metadata && transaction.metadata.utilityBillId) {
+                    try {
+                        const utilityBillId = transaction.metadata.utilityBillId;
+                        console.log('ID de facture trouvé dans les métadonnées:', utilityBillId);
+                        
+                        // Trouver et mettre à jour la facture
+                        const UtilityBill = require('../models/utility-bill.model');
+                        const utilityBill = await UtilityBill.findById(utilityBillId);
+                        
+                        if (utilityBill && !utilityBill.isPaid) {
+                            utilityBill.isPaid = true;
+                            utilityBill.paidDate = new Date();
+                            
+                            // Marquer la distribution spécifique à cet appartement comme payée
+                            if (utilityBill.distributionDetails && utilityBill.distributionDetails.length > 0) {
+                                utilityBill.distributionDetails.forEach(detail => {
+                                    if (detail.apartmentId && detail.apartmentId.toString() === transaction.apartmentId.toString()) {
+                                        detail.isPaid = true;
+                                    }
+                                });
+                            }
+                            
+                            await utilityBill.save();
+                            console.log(`Facture d'utilité ${utilityBillId} marquée comme payée suite à la transaction de type 'facture'`);
+                        } else if (utilityBill && utilityBill.isPaid) {
+                            console.log(`Facture d'utilité ${utilityBillId} déjà marquée comme payée`);
+                        } else {
+                            console.error(`Facture d'utilité ${utilityBillId} non trouvée`);
+                        }
+                    } catch (error) {
+                        console.error('Erreur lors de la mise à jour de la facture d\'utilité:', error);
+                    }
+                } else {
+                    console.error('Aucun ID de facture trouvé dans les métadonnées de la transaction');
                 }
             }
 

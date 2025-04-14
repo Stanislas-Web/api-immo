@@ -1,7 +1,17 @@
+const mongoose = require('mongoose');
 const UtilityBill = require('../models/utility-bill.model');
 const Apartment = require('../models/apartment.model');
 const Building = require('../models/building.model');
-const mongoose = require('mongoose');
+const User = require('../models/user.model');
+const Transaction = require('../models/transaction.model');
+const axios = require('axios');
+
+// Configuration FlexPay (identique à celle du payment.controller.js)
+const FLEXPAY_CONFIG = {
+  baseURL: 'https://backend.flexpay.cd/api/rest/v1',
+  merchant: 'DIGITALJOURNEY',
+  token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJcL2xvZ2luIiwicm9sZXMiOlsiTUVSQ0hBTlQiXSwiZXhwIjoxODA1OTg0NzU1LCJzdWIiOiIwMWRmMTkxNTdiNzA3NTY2NWY0YmJhNTBlYmU3NTMyZiJ9.z3d6avQpsKbAMAdvnUAeNsjgqnr_K4-O05CkeFqVXng'
+};
 
 /**
  * Créer une nouvelle facture d'eau ou d'électricité et répartir les coûts
@@ -376,5 +386,292 @@ exports.markUtilityBillAsPaidForApartment = async (req, res) => {
       message: "Erreur lors du marquage de la facture comme payée",
       error: error.message
     });
+  }
+};
+
+/**
+ * Initier le paiement d'une facture d'utilité
+ * @param {Object} req - Requête Express
+ * @param {Object} res - Réponse Express
+ */
+exports.initiateUtilityBillPayment = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Récupérer les données du corps de la requête
+    const { utilityBillId, phone, amount, devise = 'CDF', metadata = {} } = req.body;
+
+    // Validation des données requises
+    if (!utilityBillId || !phone || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Les champs utilityBillId, phone et amount sont requis'
+      });
+    }
+
+    // Recherche de la facture d'utilité
+    const utilityBill = await UtilityBill.findById(utilityBillId);
+    if (!utilityBill) {
+      return res.status(404).json({
+        success: false,
+        message: 'Facture d\'utilité non trouvée'
+      });
+    }
+
+    // Vérifier si la facture est déjà payée
+    if (utilityBill.isPaid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cette facture a déjà été payée'
+      });
+    }
+
+    // Récupérer les informations du bâtiment et du propriétaire
+    const building = await Building.findById(utilityBill.buildingId).populate('owner');
+    if (!building) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bâtiment non trouvé'
+      });
+    }
+
+    const landlord = building.owner;
+    if (!landlord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Propriétaire non trouvé'
+      });
+    }
+
+    // Récupérer les informations du locataire 
+    const tenant = req.user;
+    
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Locataire non trouvé'
+      });
+    }
+
+    // Récupérer l'appartement du locataire dans ce bâtiment
+    const apartment = await Apartment.findOne({
+      buildingId: building._id,
+      currentTenant: tenant._id
+    });
+
+    if (!apartment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appartement non trouvé pour ce locataire dans ce bâtiment'
+      });
+    }
+
+    // Générer un numéro de référence unique pour la transaction
+    const reference = `UTIL-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+    // Créer un enregistrement de transaction
+    const transaction = new Transaction({
+      apartmentId: apartment._id,
+      buildingId: building._id,
+      landlord: landlord._id,
+      tenant: tenant._id,
+      amount: {
+        value: amount,
+        currency: devise
+      },
+      type: 'facture', // Utiliser 'facture' pour les factures d'utilité
+      status: 'en_attente',
+      paymentMethod: {
+        type: 'mobile_money',
+        provider: 'flexpay',
+        status: 'pending'
+      },
+      createdBy: req.user._id,
+      metadata: {
+        ...metadata,
+        utilityBillId: utilityBill._id,
+        isUtilityPayment: true,
+        receiptNumber: reference,
+        billType: utilityBill.type,
+        billMonth: utilityBill.month,
+        billYear: utilityBill.year
+      }
+    });
+
+    await transaction.save({ session });
+
+    // Créer les données pour la requête FlexPay
+    const baseUrl = process.env.API_URL || 'http://localhost:8000';
+    const callbackUrl = `${baseUrl}/api/v1/transactions/check/${transaction._id}`;
+    const cancelUrl = `${baseUrl}/cancel`;
+    const returnUrl = `${baseUrl}/return`;
+
+    // Obtenir le token d'authentification pour FlexPay
+    const token = FLEXPAY_CONFIG.token;
+
+    // Préparer les données pour FlexPay
+    const flexPayData = {
+      merchant: FLEXPAY_CONFIG.merchant,
+      type: "1", // 1 pour paiement mobile
+      amount: amount.toString(),
+      currency: devise,
+      phone,
+      reference,
+      callbackUrl,
+      cancelUrl,
+      returnUrl,
+      description: `Paiement facture ${utilityBill.type} - ${utilityBill.month}/${utilityBill.year}`
+    };
+
+    console.log('Données envoyées à FlexPay:', JSON.stringify(flexPayData));
+
+    // Faire la requête à FlexPay
+    const flexPayResponse = await axios.post(
+      `${FLEXPAY_CONFIG.baseURL}/paymentService`,
+      flexPayData,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('Réponse de FlexPay:', JSON.stringify(flexPayResponse.data));
+
+    // Mettre à jour la transaction avec la réponse de FlexPay
+    transaction.paymentMethod.providerResponse = flexPayResponse.data;
+    await transaction.save({ session });
+
+    // Confirmer la transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    // Planifier la vérification automatique après 5 minutes
+    const orderNumber = flexPayResponse.data.orderNumber;
+    setTimeout(() => {
+      verifyUtilityPaymentStatus(orderNumber, utilityBill._id);
+    }, 5 * 60 * 1000);
+
+    // Retourner la réponse
+    return res.status(200).json({
+      success: true,
+      message: 'Paiement initié avec succès',
+      data: {
+        transaction: {
+          _id: transaction._id,
+          reference,
+          amount,
+          devise,
+          status: transaction.status
+        },
+        paymentData: flexPayResponse.data
+      }
+    });
+
+  } catch (error) {
+    // En cas d'erreur, annuler la transaction
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error('Erreur lors de l\'initiation du paiement de la facture:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'initiation du paiement',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Fonction utilitaire pour vérifier le statut d'un paiement de facture d'utilité
+ * @param {String} orderNumber - Numéro de commande FlexPay
+ * @param {String} utilityBillId - ID de la facture d'utilité
+ */
+const verifyUtilityPaymentStatus = async (orderNumber, utilityBillId) => {
+  try {
+    console.log(`Vérification automatique du paiement de facture pour orderNumber: ${orderNumber}`);
+    const response = await axios.get(`${FLEXPAY_CONFIG.baseURL}/check/${orderNumber}`, {
+      headers: {
+        'Authorization': `Bearer ${FLEXPAY_CONFIG.token}`
+      }
+    });
+
+    console.log('Réponse de la vérification du paiement:', JSON.stringify(response.data));
+    const flexPayResponse = response.data;
+
+    // Si le paiement est réussi (code = 0)
+    if (flexPayResponse.code === '0') {
+      console.log('Paiement confirmé avec succès (code 0)');
+      
+      // Trouver la transaction liée à ce paiement
+      const transaction = await Transaction.findOne({
+        'paymentMethod.providerResponse.orderNumber': orderNumber
+      });
+      
+      if (!transaction) {
+        console.error('Transaction non trouvée pour orderNumber:', orderNumber);
+        return {
+          success: false,
+          message: 'Transaction non trouvée',
+          data: null
+        };
+      }
+
+      console.log('Transaction trouvée, mise à jour du statut...');
+      transaction.status = 'complete';
+      transaction.paymentMethod.status = 'completed';
+      transaction.paymentMethod.providerResponse = flexPayResponse;
+
+      await transaction.save();
+      console.log('Transaction mise à jour avec succès');
+
+      // Marquer la facture d'utilité comme payée UNIQUEMENT si le paiement est réussi
+      const utilityBill = await UtilityBill.findById(utilityBillId);
+      if (utilityBill && !utilityBill.isPaid) {
+        utilityBill.isPaid = true;
+        utilityBill.paidDate = new Date();
+        await utilityBill.save();
+        console.log(`Facture d'utilité ${utilityBillId} marquée comme payée suite à un paiement réussi`);
+      }
+
+      return {
+        success: true,
+        message: 'Transaction complétée avec succès',
+        data: transaction
+      };
+    } else {
+      console.log(`Paiement non complété. Code: ${flexPayResponse.code}, Message: ${flexPayResponse.message}`);
+      
+      // Mettre à jour la transaction pour refléter l'échec
+      const transaction = await Transaction.findOne({
+        'paymentMethod.providerResponse.orderNumber': orderNumber
+      });
+      
+      if (transaction) {
+        transaction.status = 'echoue';
+        transaction.paymentMethod.status = 'failed';
+        transaction.paymentMethod.providerResponse = flexPayResponse;
+        await transaction.save();
+        console.log(`Transaction ${transaction._id} marquée comme échouée`);
+      }
+
+      return {
+        success: false,
+        message: 'La transaction est en attente ou a échoué',
+        data: {
+          status: flexPayResponse.code,
+          message: flexPayResponse.message
+        }
+      };
+    }
+  } catch (error) {
+    console.error('Erreur lors de la vérification du paiement:', error);
+    return {
+      success: false,
+      message: 'Erreur lors de la vérification du paiement',
+      error: error.message
+    };
   }
 };

@@ -211,6 +211,59 @@ router.patch('/:billId/apartment/:apartmentId/mark-paid', auth(['proprietaire', 
 
 /**
  * @swagger
+ * /api/v1/utility-bills/initiate-payment:
+ *   post:
+ *     summary: Initier le paiement d'une facture d'utilité
+ *     tags: [Factures d'utilité]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - utilityBillId
+ *               - phone
+ *               - amount
+ *             properties:
+ *               utilityBillId:
+ *                 type: string
+ *                 description: ID de la facture à payer
+ *               phone:
+ *                 type: string
+ *                 description: Numéro de téléphone pour le paiement mobile
+ *               amount:
+ *                 type: number
+ *                 description: Montant du paiement
+ *               devise:
+ *                 type: string
+ *                 enum: [CDF, USD]
+ *                 default: CDF
+ *                 description: Devise du paiement
+ *               metadata:
+ *                 type: object
+ *                 properties:
+ *                   notes:
+ *                     type: string
+ *                     description: Notes supplémentaires sur le paiement
+ *     responses:
+ *       200:
+ *         description: Paiement initié avec succès
+ *       400:
+ *         description: Facture déjà payée ou données invalides
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: Facture non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post('/initiate-payment', auth(['locataire']), utilityBillController.initiateUtilityBillPayment);
+
+/**
+ * @swagger
  * /api/v1/utility-bills/{id}:
  *   delete:
  *     summary: Supprimer une facture d'utilité

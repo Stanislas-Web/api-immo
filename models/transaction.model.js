@@ -168,7 +168,7 @@ const transactionSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['loyer', 'caution', 'frais_service', 'autre'],
+    enum: ['loyer', 'caution', 'frais_service', 'autre', 'facture'],
     required: true
   },
   amount: {
