@@ -229,8 +229,8 @@ router.post('/reset-password/:token', authController.resetPassword);
  * /api/v1/auth/verify-token:
  *   get:
  *     tags: [Authentication]
- *     summary: Vérification de la validité du token
- *     description: Vérifie si le token JWT est valide et non expiré
+ *     summary: Vérification du token JWT
+ *     description: Vérifie si le token JWT est valide
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -240,5 +240,161 @@ router.post('/reset-password/:token', authController.resetPassword);
  *         description: Token invalide ou expiré
  */
 router.get('/verify-token', authController.verifyToken);
+
+/**
+ * @swagger
+ * /api/v1/auth/send-otp:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Envoi d'un code OTP
+ *     description: Permet d'envoyer un code OTP pour la connexion ou l'inscription
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - number
+ *             properties:
+ *               number:
+ *                 type: string
+ *                 description: Numéro de téléphone
+ *           examples:
+ *             example:
+ *               value:
+ *                 number: "+243826016607"
+ *               summary: Envoi d'OTP
+ *     responses:
+ *       200:
+ *         description: Code OTP envoyé
+ *       400:
+ *         description: Données invalides
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post('/send-otp', authController.sendOtp);
+
+/**
+ * @swagger
+ * /api/v1/auth/verify-otp:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Vérification du code OTP
+ *     description: Vérifie le code OTP et procède à la connexion ou l'inscription
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - number
+ *               - otp
+ *             properties:
+ *               number:
+ *                 type: string
+ *                 description: Numéro de téléphone
+ *               otp:
+ *                 type: string
+ *                 description: Code OTP
+ *               firstName:
+ *                 type: string
+ *                 description: Prénom (requis pour l'inscription)
+ *               lastName:
+ *                 type: string
+ *                 description: Nom (requis pour l'inscription)
+ *           examples:
+ *             login:
+ *               value:
+ *                 number: "+243826016607"
+ *                 otp: "123456"
+ *               summary: Connexion avec OTP
+ *             signup:
+ *               value:
+ *                 number: "+243826016607"
+ *                 otp: "123456"
+ *                 firstName: "John"
+ *                 lastName: "Doe"
+ *               summary: Inscription avec OTP
+ *     responses:
+ *       200:
+ *         description: Authentification réussie
+ *       400:
+ *         description: Code OTP invalide ou expiré
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post('/verify-otp', authController.verifyOtp);
+
+/**
+ * @swagger
+ * /api/v1/auth/change-password:
+ *   patch:
+ *     tags: [Authentication]
+ *     summary: Modification du mot de passe
+ *     description: Permet à un utilisateur connecté de modifier son mot de passe
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Mot de passe modifié avec succès
+ *       400:
+ *         description: Données invalides
+ *       401:
+ *         description: Non authentifié
+ */
+router.patch('/change-password', authController.changePassword);
+
+/**
+ * @swagger
+ * /api/v1/auth/change-password-otp:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Modification du mot de passe avec OTP
+ *     description: Permet à un utilisateur de modifier son mot de passe en utilisant un code OTP
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - number
+ *               - otp
+ *               - newPassword
+ *             properties:
+ *               number:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Mot de passe modifié avec succès
+ *       400:
+ *         description: Code OTP invalide
+ *       404:
+ *         description: Utilisateur non trouvé
+ */
+router.post('/change-password-otp', authController.changePasswordOtp);
 
 module.exports = router;
