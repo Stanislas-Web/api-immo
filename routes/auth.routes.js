@@ -397,4 +397,52 @@ router.patch('/change-password', authController.changePassword);
  */
 router.post('/change-password-otp', authController.changePasswordOtp);
 
+/**
+ * @swagger
+ * /api/v1/auth/register-with-otp:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Inscription avec vérification OTP en une seule étape
+ *     description: Permet à un nouvel utilisateur de s'inscrire en vérifiant un OTP déjà reçu
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phone
+ *               - password
+ *               - firstName
+ *               - lastName
+ *               - role
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email de l'utilisateur (optionnel)
+ *               phone:
+ *                 type: string
+ *                 description: Numéro de téléphone
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mot de passe
+ *               firstName:
+ *                 type: string
+ *                 description: Prénom
+ *               lastName:
+ *                 type: string
+ *                 description: Nom
+ *               role:
+ *                 type: string
+ *                 enum: [locataire, proprietaire, agent, admin]
+ *                 description: Rôle de l'utilisateur
+ *               otp:
+ *                 type: string
+ *                 description: Code OTP reçu
+ */
+router.post('/register-with-otp', authController.registerWithOtp);
+
 module.exports = router;

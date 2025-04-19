@@ -30,7 +30,6 @@ const JWT_EXPIRES_IN = '24h';
  *           schema:
  *             type: object
  *             required:
- *               - email
  *               - phone
  *               - password
  *               - firstName
@@ -40,7 +39,7 @@ const JWT_EXPIRES_IN = '24h';
  *               email:
  *                 type: string
  *                 format: email
- *                 description: Email de l'utilisateur
+ *                 description: Email de l'utilisateur (optionnel)
  *               phone:
  *                 type: string
  *                 description: Numéro de téléphone
@@ -71,11 +70,16 @@ exports.register = async (req, res) => {
         const { email, phone, password, firstName, lastName, role } = req.body;
 
         // Vérifier si l'utilisateur existe déjà
-        const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+        const existingUserQuery = { phone };
+        if (email) {
+            existingUserQuery.$or = [{ phone }, { email }];
+        }
+        
+        const existingUser = await User.findOne(existingUserQuery);
         if (existingUser) {
             return res.status(400).json({
                 success: false,
-                message: 'Email ou numéro de téléphone déjà utilisé'
+                message: email ? 'Email ou numéro de téléphone déjà utilisé' : 'Numéro de téléphone déjà utilisé'
             });
         }
 
@@ -87,7 +91,6 @@ exports.register = async (req, res) => {
 
         // Créer le nouvel utilisateur
         const user = new User({
-            email,
             phone,
             password: hashedPassword,
             firstName,
@@ -96,13 +99,22 @@ exports.register = async (req, res) => {
             verificationToken
         });
 
+        // Ajouter l'email seulement s'il est fourni
+        if (email) {
+            user.email = email;
+        }
+
         await user.save();
 
-        // Envoyer l'email de vérification (à implémenter)
+        // Envoyer l'email de vérification (à implémenter) - seulement si l'email est fourni
+        let message = 'Inscription réussie.';
+        if (email) {
+            message += ' Veuillez vérifier votre email.';
+        }
 
         res.status(201).json({
             success: true,
-            message: 'Inscription réussie. Veuillez vérifier votre email.'
+            message
         });
     } catch (error) {
         res.status(500).json({
@@ -481,7 +493,13 @@ exports.verifyToken = async (req, res) => {
  */
 exports.sendOtp = async (req, res) => {
     try {
-        const { number } = req.body;
+        let { number } = req.body;
+
+        // S'assurer que le numéro de téléphone commence par "+"
+        if (number && !number.startsWith('+')) {
+            number = '+' + number;
+            console.log("Ajout du '+' au numéro de téléphone:", number);
+        }
 
         if (!number) {
             return res.status(400).json({
@@ -490,8 +508,17 @@ exports.sendOtp = async (req, res) => {
             });
         }
 
+        // Afficher tous les OTP existants pour ce numéro (débogage)
+        const existingOtps = await Otp.find({ number });
+        console.log("OTPs existants pour ce numéro:", existingOtps.map(o => ({
+            id: o._id,
+            number: o.number,
+            createdAt: o.createdAt
+        })));
+
         // Vérifier si l'utilisateur existe (connexion) ou est nouveau (inscription)
-        const user = await User.findOne({ number });
+        const user = await User.findOne({ phone: number });
+        console.log("Utilisateur trouvé:", user ? "Oui" : "Non");
         
         // Générer le code OTP (6 chiffres)
         const otp = Math.floor(100000 + Math.random() * 900000);
@@ -503,6 +530,7 @@ exports.sendOtp = async (req, res) => {
         
         // Supprimer les anciens OTP pour ce numéro
         await Otp.deleteMany({ number });
+        console.log("Anciens OTPs supprimés pour le numéro:", number);
         
         // Créer un nouvel enregistrement OTP
         const newOtp = new Otp({
@@ -511,6 +539,11 @@ exports.sendOtp = async (req, res) => {
         });
         
         await newOtp.save();
+        console.log("Nouvel OTP créé:", {
+            id: newOtp._id,
+            number: newOtp.number,
+            createdAt: newOtp.createdAt
+        });
         
         // Envoi du code OTP via WhatsApp
         let data = JSON.stringify({
@@ -578,6 +611,7 @@ exports.sendOtp = async (req, res) => {
         });
         
     } catch (error) {
+        console.error("Erreur lors de l'envoi du code OTP:", error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de l\'envoi du code OTP',
@@ -690,17 +724,17 @@ exports.verifyOtp = async (req, res) => {
     }
     
     // Vérifier si l'utilisateur existe
-    const user = await User.findOne({ number });
+    const user = await User.findOne({ phone: number });
     
     if (user) {
       // OTP Login - L'utilisateur existe
-      const result = await User.findOne({ number });
+      const result = await User.findOne({ phone: number });
       return res.status(200).json({
         success: true,
         message: "Connexion réussie",
         data: result,
         token: jwt.sign(
-          { name: `${result.firstName} ${result.lastName}`, number: result.number, _id: result._id },
+          { name: `${result.firstName} ${result.lastName}`, phone: result.phone, _id: result._id },
           "RESTFULAPIs"
         )
       });
@@ -714,7 +748,7 @@ exports.verifyOtp = async (req, res) => {
       }
       
       const newUser = new User({
-        number,
+        phone: number,
         firstName,
         lastName,
         password: await bcrypt.hash(crypto.randomBytes(8).toString('hex'), 10) // Mot de passe aléatoire sécurisé
@@ -728,7 +762,7 @@ exports.verifyOtp = async (req, res) => {
         message: "Inscription réussie",
         data: result,
         token: jwt.sign(
-          { name: `${result.firstName} ${result.lastName}`, number: result.number, _id: result._id },
+          { name: `${result.firstName} ${result.lastName}`, phone: result.phone, _id: result._id },
           "RESTFULAPIs"
         )
       });
@@ -891,12 +925,12 @@ exports.changePassword = async (req, res) => {
  */
 exports.changePasswordOtp = async (req, res) => {
   try {
-    const { number, otp, newPassword } = req.body;
+    const { phone, otp, newPassword } = req.body;
     
-    console.log("Requête de changement de mot de passe par OTP:", { number, otp });
+    console.log("Requête de changement de mot de passe par OTP:", { phone, otp });
     
     // Vérifier que tous les champs sont présents
-    if (!number || !otp || !newPassword) {
+    if (!phone || !otp || !newPassword) {
       return res.status(400).json({
         success: false,
         message: "Numéro, OTP et nouveau mot de passe sont requis"
@@ -912,7 +946,7 @@ exports.changePasswordOtp = async (req, res) => {
     }
     
     // Vérifier que l'utilisateur existe - chercher par phone au lieu de number
-    const user = await User.findOne({ phone: number });
+    const user = await User.findOne({ phone });
     console.log("Utilisateur trouvé:", user ? "Oui" : "Non");
     
     if (!user) {
@@ -923,7 +957,7 @@ exports.changePasswordOtp = async (req, res) => {
     }
     
     // Vérifier l'OTP
-    const otpHolder = await Otp.find({ number });
+    const otpHolder = await Otp.find({ phone });
     console.log("OTPs trouvés:", otpHolder.length);
     
     if (otpHolder.length === 0) {
@@ -934,7 +968,7 @@ exports.changePasswordOtp = async (req, res) => {
     }
     
     const rightOtpFind = otpHolder[otpHolder.length - 1];
-    console.log("OTP trouvé pour ce numéro:", rightOtpFind.number === number ? "Oui" : "Non");
+    console.log("OTP trouvé pour ce numéro:", rightOtpFind.phone === phone ? "Oui" : "Non");
     
     const validOtp = await bcrypt.compare(otp, rightOtpFind.otp);
     console.log("OTP valide:", validOtp ? "Oui" : "Non");
@@ -955,13 +989,13 @@ exports.changePasswordOtp = async (req, res) => {
     console.log("Mot de passe mis à jour avec succès");
     
     // Supprimer l'OTP
-    await Otp.deleteMany({ number });
+    await Otp.deleteMany({ phone });
     
     return res.status(200).json({
       success: true,
       message: "Mot de passe modifié avec succès",
       token: jwt.sign(
-        { name: `${user.firstName} ${user.lastName}`, number: user.phone, _id: user._id },
+        { name: `${user.firstName} ${user.lastName}`, phone: user.phone, _id: user._id },
         "RESTFULAPIs"
       )
     });
@@ -973,4 +1007,255 @@ exports.changePasswordOtp = async (req, res) => {
       error: error.message
     });
   }
+};
+
+/**
+ * @swagger
+ * /api/v1/auth/register-with-otp:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Inscription avec vérification OTP en une seule étape
+ *     description: Permet à un nouvel utilisateur de s'inscrire en vérifiant un OTP déjà reçu
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phone
+ *               - password
+ *               - firstName
+ *               - lastName
+ *               - role
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email de l'utilisateur (optionnel)
+ *               phone:
+ *                 type: string
+ *                 description: Numéro de téléphone
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mot de passe
+ *               firstName:
+ *                 type: string
+ *                 description: Prénom
+ *               lastName:
+ *                 type: string
+ *                 description: Nom
+ *               role:
+ *                 type: string
+ *                 enum: [locataire, proprietaire, agent, admin]
+ *                 description: Rôle de l'utilisateur
+ *               otp:
+ *                 type: string
+ *                 description: Code OTP reçu
+ *     responses:
+ *       201:
+ *         description: Inscription réussie
+ *       400:
+ *         description: Données invalides, utilisateur existant ou OTP invalide
+ *       500:
+ *         description: Erreur serveur
+ */
+exports.registerWithOtp = async (req, res) => {
+    try {
+        // Extraire les données de la requête
+        let { email, phone, password, firstName, lastName, role, otp } = req.body;
+
+        console.log("Données de la requête:", { email, phone, password, firstName, lastName, role, otp });
+
+        // S'assurer que le numéro de téléphone commence par "+"
+        if (phone && !phone.startsWith('+')) {
+            phone = '+' + phone;
+        }
+
+        // Valider les entrées
+        if (!phone || !password || !firstName || !lastName || !role || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tous les champs sont requis sauf l\'email'
+            });
+        }
+
+        // Vérifier si l'utilisateur existe déjà
+        const existingUserQuery = { phone };
+        if (email) {
+            existingUserQuery.$or = [{ phone }, { email }];
+        }
+        
+        const existingUser = await User.findOne(existingUserQuery);
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                message: email ? 'Email ou numéro de téléphone déjà utilisé' : 'Numéro de téléphone déjà utilisé'
+            });
+        }
+
+        // Afficher tous les OTPs dans la base de données pour le débogage
+        const allOtps = await Otp.find();
+        console.log("Tous les OTPs dans la base de données:", 
+            allOtps.map(o => ({ id: o._id, number: o.number, createdAt: o.createdAt }))
+        );
+
+        // IMPORTANT: Recherche de l'OTP avec le numéro correct
+        console.log("Recherche de l'OTP pour le numéro:", phone);
+        
+        // Utiliser findOne avec sort pour obtenir l'OTP le plus récent
+        const otpRecord = await Otp.findOne({ number: phone }).sort({ createdAt: -1 });
+        
+        // Si aucun OTP n'est trouvé, essayer avec le format sans "+"
+        if (!otpRecord && phone.startsWith('+')) {
+            const phoneWithoutPlus = phone.substring(1);
+            console.log("Essai sans le '+' :", phoneWithoutPlus);
+            const otpRecordAlt = await Otp.findOne({ number: phoneWithoutPlus }).sort({ createdAt: -1 });
+            
+            if (otpRecordAlt) {
+                console.log("OTP trouvé avec le format sans '+'");
+                // Utiliser cet OTP
+                const isValidOtp = await bcrypt.compare(otp, otpRecordAlt.otp);
+                console.log("OTP valide:", isValidOtp);
+                
+                if (!isValidOtp) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Code OTP incorrect"
+                    });
+                }
+                
+                // Si on arrive ici, l'OTP est valide - procéder à l'inscription
+                const hashedPassword = await bcrypt.hash(password, 10);
+                
+                const user = new User({
+                    phone,
+                    password: hashedPassword,
+                    firstName,
+                    lastName,
+                    role,
+                    isVerified: true
+                });
+                
+                if (email) {
+                    user.email = email;
+                }
+                
+                await user.save();
+                
+                // Supprimer l'OTP utilisé
+                await Otp.deleteOne({ _id: otpRecordAlt._id });
+                
+                // Générer le token JWT
+                const token = jwt.sign(
+                    { 
+                        userId: user._id,
+                        role: user.role
+                    },
+                    JWT_SECRET,
+                    { expiresIn: JWT_EXPIRES_IN }
+                );
+                
+                return res.status(201).json({
+                    success: true,
+                    message: 'Inscription réussie avec vérification OTP',
+                    data: {
+                        user: {
+                            id: user._id,
+                            phone: user.phone,
+                            email: user.email,
+                            firstName: user.firstName,
+                            lastName: user.lastName,
+                            role: user.role
+                        },
+                        token
+                    }
+                });
+            }
+            
+            // Si aucun OTP n'est trouvé même avec le format alternatif
+            return res.status(400).json({
+                success: false,
+                message: "Aucun OTP trouvé pour ce numéro. Veuillez demander un nouveau code."
+            });
+        }
+        
+        // Si un OTP est trouvé avec le format original
+        if (otpRecord) {
+            console.log("OTP trouvé:", { id: otpRecord._id, number: otpRecord.number });
+            
+            // Vérifier si l'OTP est correct
+            const isValidOtp = await bcrypt.compare(otp, otpRecord.otp);
+            console.log("OTP valide:", isValidOtp);
+            
+            if (!isValidOtp) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Code OTP incorrect"
+                });
+            }
+            
+            // Si on arrive ici, l'OTP est valide - procéder à l'inscription
+            const hashedPassword = await bcrypt.hash(password, 10);
+            
+            const user = new User({
+                phone,
+                password: hashedPassword,
+                firstName,
+                lastName,
+                role,
+                isVerified: true
+            });
+            
+            if (email) {
+                user.email = email;
+            }
+            
+            await user.save();
+            
+            // Supprimer l'OTP utilisé
+            await Otp.deleteOne({ _id: otpRecord._id });
+            
+            // Générer le token JWT
+            const token = jwt.sign(
+                { 
+                    userId: user._id,
+                    role: user.role
+                },
+                JWT_SECRET,
+                { expiresIn: JWT_EXPIRES_IN }
+            );
+            
+            return res.status(201).json({
+                success: true,
+                message: 'Inscription réussie avec vérification OTP',
+                data: {
+                    user: {
+                        id: user._id,
+                        phone: user.phone,
+                        email: user.email,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        role: user.role
+                    },
+                    token
+                }
+            });
+        } else {
+            // Si aucun OTP n'est trouvé
+            return res.status(400).json({
+                success: false,
+                message: "Aucun OTP trouvé pour ce numéro. Veuillez demander un nouveau code."
+            });
+        }
+    } catch (error) {
+        console.error("Erreur lors de l'inscription avec OTP:", error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de l\'inscription',
+            error: error.message
+        });
+    }
 };
