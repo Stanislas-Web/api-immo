@@ -925,12 +925,12 @@ exports.changePassword = async (req, res) => {
  */
 exports.changePasswordOtp = async (req, res) => {
   try {
-    const { phone, otp, newPassword } = req.body;
+    const { number, otp, newPassword } = req.body;
     
-    console.log("Requête de changement de mot de passe par OTP:", { phone, otp });
+    console.log("Requête de changement de mot de passe par OTP:", { number, otp });
     
     // Vérifier que tous les champs sont présents
-    if (!phone || !otp || !newPassword) {
+    if (!number || !otp || !newPassword) {
       return res.status(400).json({
         success: false,
         message: "Numéro, OTP et nouveau mot de passe sont requis"
@@ -945,8 +945,8 @@ exports.changePasswordOtp = async (req, res) => {
       });
     }
     
-    // Vérifier que l'utilisateur existe - chercher par phone au lieu de number
-    const user = await User.findOne({ phone });
+    // Vérifier que l'utilisateur existe
+    const user = await User.findOne({ phone: number });
     console.log("Utilisateur trouvé:", user ? "Oui" : "Non");
     
     if (!user) {
@@ -957,7 +957,7 @@ exports.changePasswordOtp = async (req, res) => {
     }
     
     // Vérifier l'OTP
-    const otpHolder = await Otp.find({ phone });
+    const otpHolder = await Otp.find({ number });
     console.log("OTPs trouvés:", otpHolder.length);
     
     if (otpHolder.length === 0) {
@@ -968,7 +968,7 @@ exports.changePasswordOtp = async (req, res) => {
     }
     
     const rightOtpFind = otpHolder[otpHolder.length - 1];
-    console.log("OTP trouvé pour ce numéro:", rightOtpFind.phone === phone ? "Oui" : "Non");
+    console.log("OTP trouvé pour ce numéro:", rightOtpFind.number === number ? "Oui" : "Non");
     
     const validOtp = await bcrypt.compare(otp, rightOtpFind.otp);
     console.log("OTP valide:", validOtp ? "Oui" : "Non");
@@ -989,15 +989,31 @@ exports.changePasswordOtp = async (req, res) => {
     console.log("Mot de passe mis à jour avec succès");
     
     // Supprimer l'OTP
-    await Otp.deleteMany({ phone });
+    await Otp.deleteMany({ number });
+    
+    // Générer le token JWT
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        role: user.role
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
     
     return res.status(200).json({
       success: true,
-      message: "Mot de passe modifié avec succès",
-      token: jwt.sign(
-        { name: `${user.firstName} ${user.lastName}`, phone: user.phone, _id: user._id },
-        "RESTFULAPIs"
-      )
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        isVerified: user.isVerified,
+        profileImage: user.profileImage || null
+      }
     });
   } catch (error) {
     console.error("Erreur lors du changement de mot de passe par OTP:", error);
