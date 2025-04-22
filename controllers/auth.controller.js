@@ -551,9 +551,9 @@ exports.sendOtp = async (req, res) => {
           "to": number,
           "type": "template",
           "template": {
-            "name": "otp_1",
+            "name": "otp_3",
             "language": {
-              "code": "en_US"
+              "code": "fr"
             },
             "components": [
               {
